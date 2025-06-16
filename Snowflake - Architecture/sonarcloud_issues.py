@@ -1,7 +1,7 @@
 def get_sonarcloud_issues():
     import requests
     import pandas as pd
-    import datetime 
+    import datetime
     from snowflake.snowpark.context import get_active_session
     session = get_active_session()
     results = session.sql("SELECT PROD.RAW.sonarcloud_api_key()").collect()
