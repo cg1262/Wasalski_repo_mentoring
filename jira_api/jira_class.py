@@ -69,6 +69,7 @@ class Jira():
                 print(f"Błąd {response.status_code}: {response.text}")
                 break
         # end of pagination
+        
         if all_boards:
             data_all_boards = pd.DataFrame(all_boards)
             data_all_boards.reset_index()
