@@ -1,0 +1,24 @@
+- Azure Open AI - podłączenie, działanie - covered
+- Linux - zainstalowac surowke (olej linuxa)
+- czy tuple są szybsze od list ? - covered
+- tuple mogą być zagniezdzone ? - covered
+- lambda, dict/list comprehension - covered
+- rodzaje zmiennych - LEGB ? - covered
+- 1NF - 3NF - covered
+- plik Bicep - po co, gdzie - covered
+- Github Actions - co to ? - covered
+- Jenkins - do czego ? - covered
+- Terraform - o co chodzi ? - covered
+- składnia XML - covered
+- jak działa Mongo DB ? - covered
+- rónice - PostgreSQL, SQLite, CosmosDB i do czego którą najlepiej wybrac - covered
+- python / sql - techniki optymalizacji skryptów - covered
+- python - trackowanie wykorzystania zasobów, włączanie wszystkich core;ów - covered
+- opentable format - co to ? - covered
+- iceberg catalog - co to ? - covered
+- ACID - co to jest w bazach danych ? - covered
+- Schema Evolution - covered
+- jak dobrze stworzyć swoją appkę - backend, frontend, baza danych, automatyzacja, czy lepiej docker czy web?, security - covered
+- formaty danych - Parquet, Delta, json - co do czego najlepsze ? - covered
+- co to jest Delta Share ? - covered
+- SAS URL - co to ? - covered
