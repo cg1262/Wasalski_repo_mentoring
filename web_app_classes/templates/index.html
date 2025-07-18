@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endpoint Data Explorer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
+    <style>
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .method-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .data-preview {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 0;
+            background-color: #f8f9fa;
+            position: relative;
+        }
+        
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .success-message {
+            background-color: #d1e7dd;
+            color: #0f5132;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #198754;
+        }
+        
+        .data-table {
+            font-size: 0.9em;
+            margin: 0;
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+        }
+        
+        .data-table thead th {
+            position: sticky;
+            top: 0;
+            background-color: #343a40 !important;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            cursor: pointer;
+            user-select: none;
+            padding: 8px !important;
+            border-bottom: 2px solid #495057 !important;
+            border-right: 1px solid #495057;
+        }
+        
+        .data-table tbody td {
+            background-color: white;
+            border-right: 1px solid #dee2e6;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .data-table tbody tr:nth-child(even) td {
+            background-color: #f8f9fa;
+        }
+        
+        .data-table thead th:hover {
+            background-color: #495057 !important;
+        }
+        
+        .sort-indicator {
+            float: right;
+            margin-left: 5px;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+        
+        .filter-input {
+            width: 100%;
+            padding: 2px 4px;
+            font-size: 0.8em;
+            border: 1px solid #ced4da;
+            border-radius: 3px;
+            margin-top: 4px;
+            background-color: white;
+            color: black;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .column-title {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.3);
+        }
+        
+        .header-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+            border-radius: 0 0 20px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-section">
+        <div class="container">
+            <h1 class="text-center mb-3">
+                <i class="fas fa-database"></i> Endpoint Data Explorer
+            </h1>
+            <p class="text-center mb-0">Dynamic loading and execution of endpoint methods</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Control Section -->
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cogs"></i> Method Selection
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <label for="methodSelect" class="form-label fw-bold">Select method to execute:</label>
+                                <select id="methodSelect" class="form-select form-select-lg">
+                                    <option value="">Loading available methods...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button id="executeBtn" class="btn btn-primary btn-lg w-100" disabled>
+                                    <i class="fas fa-play"></i> Execute Method
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="methodInfo" class="method-info mt-3" style="display: none;">
+                            <h6><i class="fas fa-info-circle"></i> Method Information</h6>
+                            <p id="methodDescription" class="mb-0"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <h6><i class="fas fa-chart-bar"></i> Statistics</h6>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="h4 mb-0" id="methodCount">0</div>
+                            <small>Available methods</small>
+                        </div>
+                        <div>
+                            <div class="h4 mb-0" id="executionCount">0</div>
+                            <small>Executions</small>
+                        </div>
+                    </div>
+                    <button id="reloadBtn" class="btn btn-outline-light btn-sm mt-2 w-100">
+                        <i class="fas fa-sync"></i> Reload Endpoints
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Loading Section -->
+        <div id="loadingSection" class="loading-spinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Executing method...</p>
+            <button id="cancelBtn" class="btn btn-danger btn-sm mt-2">
+                <i class="fas fa-stop"></i> Cancel
+            </button>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="resultsSection" style="display: none;">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table"></i> Results
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="dataframeInfo" class="alert alert-info" style="display: none;">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>DataFrame:</strong> <span id="shapeInfo"></span>
+                    </div>
+                    
+                    <div id="dataPreview" class="data-preview"></div>
+                    
+                    <div class="mt-3">
+                        <div class="btn-group me-2" role="group">
+                            <button id="downloadBtn" class="btn btn-outline-success" style="display: none;">
+                                <i class="fas fa-download"></i> Download CSV
+                            </button>
+                            <button id="showJsonBtn" class="btn btn-outline-info" style="display: none;">
+                                <i class="fas fa-code"></i> Show JSON
+                            </button>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button id="showStatsBtn" class="btn btn-outline-primary" style="display: none;">
+                                <i class="fas fa-chart-bar"></i> Statistics
+                            </button>
+                            <button id="showDescribeBtn" class="btn btn-outline-secondary" style="display: none;">
+                                <i class="fas fa-info-circle"></i> Describe
+                            </button>
+                            <button id="showDtypesBtn" class="btn btn-outline-warning" style="display: none;">
+                                <i class="fas fa-tags"></i> Data Types
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Section -->
+        <div id="errorSection" style="display: none;">
+            <div class="card shadow">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Error
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="errorMessage" class="error-message"></div>
+                    <div id="errorTraceback" class="mt-3" style="display: none;">
+                        <h6>Detailed error information:</h6>
+                        <pre class="language-python"><code id="tracebackCode"></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal JSON -->
+    <div class="modal fade" id="jsonModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Data in JSON format</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <pre class="language-json"><code id="jsonContent"></code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Statistics -->
+    <div class="modal fade" id="statsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Column Statistics</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="statsContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    
+    <script>
+        // Global variables
+        let currentData = null;
+        let originalData = null;
+        let executionCount = 0;
+        let abortController = null;
+        let currentSort = { column: null, direction: 'asc' };
+        let columnFilters = {};
+        
+        // DOM elements
+        const methodSelect = document.getElementById('methodSelect');
+        const executeBtn = document.getElementById('executeBtn');
+        const reloadBtn = document.getElementById('reloadBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const loadingSection = document.getElementById('loadingSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const errorSection = document.getElementById('errorSection');
+        const methodInfo = document.getElementById('methodInfo');
+        const methodDescription = document.getElementById('methodDescription');
+        const methodCount = document.getElementById('methodCount');
+        const executionCountElement = document.getElementById('executionCount');
+        
+        // Application initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMethods();
+            
+            // Event listeners
+            methodSelect.addEventListener('change', handleMethodChange);
+            executeBtn.addEventListener('click', executeMethod);
+            reloadBtn.addEventListener('click', reloadEndpoints);
+            cancelBtn.addEventListener('click', cancelExecution);
+            
+            document.getElementById('downloadBtn').addEventListener('click', downloadCSV);
+            document.getElementById('showJsonBtn').addEventListener('click', showJSON);
+            document.getElementById('showStatsBtn').addEventListener('click', showStatistics);
+            document.getElementById('showDescribeBtn').addEventListener('click', showDescribe);
+            document.getElementById('showDtypesBtn').addEventListener('click', showDtypes);
+        });
+        
+        // Load available methods
+        async function loadMethods() {
+            try {
+                const response = await fetch('/api/methods');
+                const methods = await response.json();
+                
+                methodSelect.innerHTML = '<option value="">Select method...</option>';
+                
+                methods.forEach(method => {
+                    const option = document.createElement('option');
+                    option.value = method.key;
+                    option.textContent = method.display_name;
+                    methodSelect.appendChild(option);
+                });
+                
+                methodCount.textContent = methods.length;
+                
+            } catch (error) {
+                console.error('Error loading methods:', error);
+                methodSelect.innerHTML = '<option value="">Error loading methods</option>';
+            }
+        }
+        
+        // Handle selected method change
+        function handleMethodChange() {
+            const selectedMethod = methodSelect.value;
+            
+            if (selectedMethod) {
+                executeBtn.disabled = false;
+                methodInfo.style.display = 'block';
+                methodDescription.textContent = `Selected method: ${selectedMethod}`;
+            } else {
+                executeBtn.disabled = true;
+                methodInfo.style.display = 'none';
+            }
+            
+            // Hide previous results
+            hideAllSections();
+        }
+        
+        // Execute selected method
+        async function executeMethod() {
+            const selectedMethod = methodSelect.value;
+            
+            if (!selectedMethod) {
+                alert('Please select a method to execute');
+                return;
+            }
+            
+            // Create new AbortController
+            abortController = new AbortController();
+            
+            // Show loading and hide other sections
+            showLoading();
+            hideAllSections();
+            
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        method_key: selectedMethod
+                    }),
+                    signal: abortController.signal
+                });
+                
+                const result = await response.json();
+                
+                hideLoading();
+                
+                if (result.success) {
+                    displayResults(result);
+                    executionCount++;
+                    executionCountElement.textContent = executionCount;
+                } else {
+                    displayError(result);
+                }
+                
+            } catch (error) {
+                hideLoading();
+                
+                if (error.name === 'AbortError') {
+                    displayError({
+                        error: 'Operation was cancelled by user',
+                        traceback: ''
+                    });
+                } else {
+                    displayError({
+                        error: 'Server communication error',
+                        traceback: error.toString()
+                    });
+                }
+            } finally {
+                abortController = null;
+            }
+        }
+        
+        // Cancel method execution
+        function cancelExecution() {
+            if (abortController) {
+                abortController.abort();
+            }
+        }
+        
+        // Display results
+        function displayResults(result) {
+            resultsSection.style.display = 'block';
+            
+            const dataPreview = document.getElementById('dataPreview');
+            const dataframeInfo = document.getElementById('dataframeInfo');
+            const shapeInfo = document.getElementById('shapeInfo');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const showJsonBtn = document.getElementById('showJsonBtn');
+            
+            currentData = result.data;
+            originalData = [...result.data]; // Store original data
+            columnFilters = {}; // Reset filters
+            currentSort = { column: null, direction: 'asc' }; // Reset sort
+            
+            if (result.data_type === 'dataframe') {
+                // Display DataFrame information
+                dataframeInfo.style.display = 'block';
+                shapeInfo.textContent = `${result.shape[0]} rows, ${result.shape[1]} columns`;
+                
+                // Create table
+                const table = createDataTable(result.data, result.columns);
+                dataPreview.innerHTML = table;
+                
+                downloadBtn.style.display = 'inline-block';
+                showJsonBtn.style.display = 'inline-block';
+                document.getElementById('showStatsBtn').style.display = 'inline-block';
+                document.getElementById('showDescribeBtn').style.display = 'inline-block';
+                document.getElementById('showDtypesBtn').style.display = 'inline-block';
+                
+            } else {
+                // Display other data
+                dataframeInfo.style.display = 'none';
+                dataPreview.innerHTML = `<pre>${result.data}</pre>`;
+                
+                downloadBtn.style.display = 'none';
+                showJsonBtn.style.display = 'none';
+                document.getElementById('showStatsBtn').style.display = 'none';
+                document.getElementById('showDescribeBtn').style.display = 'none';
+                document.getElementById('showDtypesBtn').style.display = 'none';
+            }
+        }
+        
+        // Create HTML table from data
+        function createDataTable(data, columns) {
+            if (!data || data.length === 0) {
+                return '<p class="text-muted">No data to display</p>';
+            }
+            
+            let html = '<table class="table table-striped table-hover data-table">';
+            
+            // Headers with sorting and filtering
+            html += '<thead class="table-dark"><tr>';
+            columns.forEach(col => {
+                const sortIcon = getSortIcon(col);
+                html += `
+                    <th onclick="sortTable('${col}')" data-column="${col}">
+                        <div class="header-content">
+                            <div>
+                                <div class="column-title">${col}</div>
+                                <input type="text" class="filter-input" placeholder="Filter..." 
+                                       onclick="event.stopPropagation()" 
+                                       oninput="filterTable('${col}', this.value)"
+                                       value="${columnFilters[col] || ''}">
+                            </div>
+                            <span class="sort-indicator">${sortIcon}</span>
+                        </div>
+                    </th>
+                `;
+            });
+            html += '</tr></thead>';
+            
+            // Data (only first 100 rows for performance)
+            html += '<tbody>';
+            const displayData = data.slice(0, 100);
+            
+            displayData.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    const value = row[col] || '';
+                    html += `<td>${value}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            
+            if (data.length > 100) {
+                html += `<p class="text-muted mt-2">Showing first 100 of ${data.length} rows (after filtering)</p>`;
+            }
+            
+            return html;
+        }
+        
+        // Get sort icon
+        function getSortIcon(column) {
+            if (currentSort.column === column) {
+                return currentSort.direction === 'asc' ? '▲' : '▼';
+            }
+            return '↕';
+        }
+        
+        // Sort table
+        function sortTable(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+            
+            currentData.sort((a, b) => {
+                let aVal = a[column] || '';
+                let bVal = b[column] || '';
+                
+                // Try to parse as numbers
+                const aNum = parseFloat(aVal);
+                const bNum = parseFloat(bVal);
+                
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return currentSort.direction === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                
+                // String comparison
+                aVal = aVal.toString().toLowerCase();
+                bVal = bVal.toString().toLowerCase();
+                
+                if (currentSort.direction === 'asc') {
+                    return aVal.localeCompare(bVal);
+                } else {
+                    return bVal.localeCompare(aVal);
+                }
+            });
+            
+            refreshTable();
+        }
+        
+        // Filter table
+        function filterTable(column, filterValue) {
+            columnFilters[column] = filterValue;
+            applyFilters();
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            currentData = originalData.filter(row => {
+                return Object.keys(columnFilters).every(col => {
+                    const filterValue = columnFilters[col];
+                    if (!filterValue) return true;
+                    
+                    const cellValue = (row[col] || '').toString().toLowerCase();
+                    return cellValue.includes(filterValue.toLowerCase());
+                });
+            });
+            
+            // Reapply current sort
+            if (currentSort.column) {
+                sortTable(currentSort.column);
+            } else {
+                refreshTable();
+            }
+        }
+        
+        // Refresh table
+        function refreshTable() {
+            const columns = originalData.length > 0 ? Object.keys(originalData[0]) : [];
+            const table = createDataTable(currentData, columns);
+            document.getElementById('dataPreview').innerHTML = table;
+            
+            // Update info
+            const shapeInfo = document.getElementById('shapeInfo');
+            shapeInfo.textContent = `${currentData.length} rows (of ${originalData.length}), ${columns.length} columns`;
+        }
+        
+        // Display errors
+        function displayError(result) {
+            errorSection.style.display = 'block';
+            
+            const errorMessage = document.getElementById('errorMessage');
+            const errorTraceback = document.getElementById('errorTraceback');
+            const tracebackCode = document.getElementById('tracebackCode');
+            
+            errorMessage.innerHTML = `<strong>Error:</strong> ${result.error}`;
+            
+            if (result.traceback) {
+                errorTraceback.style.display = 'block';
+                tracebackCode.textContent = result.traceback;
+                Prism.highlightElement(tracebackCode);
+            } else {
+                errorTraceback.style.display = 'none';
+            }
+        }
+        
+        // Reload endpoints
+        async function reloadEndpoints() {
+            reloadBtn.disabled = true;
+            reloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reloading...';
+            
+            try {
+                const response = await fetch('/api/reload');
+                const result = await response.json();
+                
+                if (result.success) {
+                    await loadMethods();
+                    hideAllSections();
+                    
+                    // Show notification
+                    const alert = document.createElement('div');
+                    alert.className = 'alert alert-success alert-dismissible fade show';
+                    alert.innerHTML = `
+                        <strong>Success!</strong> ${result.message}. Found ${result.methods_count} methods.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    document.querySelector('.container').insertBefore(alert, document.querySelector('.row'));
+                    
+                    // Auto remove after 5 seconds
+                    setTimeout(() => {
+                        alert.remove();
+                    }, 5000);
+                }
+                
+            } catch (error) {
+                console.error('Error during reload:', error);
+            } finally {
+                reloadBtn.disabled = false;
+                reloadBtn.innerHTML = '<i class="fas fa-sync"></i> Reload Endpoints';
+            }
+        }
+        
+        // Download data as CSV
+        function downloadCSV() {
+            if (!currentData) return;
+            
+            const csv = convertToCSV(currentData);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'endpoint_data.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+        
+        // Convert data to CSV
+        function convertToCSV(data) {
+            if (!data || data.length === 0) return '';
+            
+            const headers = Object.keys(data[0]);
+            const csv = [headers.join(',')];
+            
+            data.forEach(row => {
+                const values = headers.map(header => {
+                    const value = row[header] || '';
+                    return `"${value.toString().replace(/"/g, '""')}"`;
+                });
+                csv.push(values.join(','));
+            });
+            
+            return csv.join('\n');
+        }
+        
+        // Display JSON
+        function showJSON() {
+            if (!currentData) return;
+            
+            const jsonContent = document.getElementById('jsonContent');
+            jsonContent.textContent = JSON.stringify(currentData, null, 2);
+            Prism.highlightElement(jsonContent);
+            
+            new bootstrap.Modal(document.getElementById('jsonModal')).show();
+        }
+        
+        // Display statistics
+        function showStatistics() {
+            if (!originalData || originalData.length === 0) return;
+            
+            const columns = Object.keys(originalData[0]);
+            const stats = {};
+            
+            columns.forEach(col => {
+                const values = originalData.map(row => row[col]).filter(val => val !== null && val !== undefined && val !== '');
+                const numericValues = values.map(val => parseFloat(val)).filter(val => !isNaN(val));
+                
+                stats[col] = {
+                    total: originalData.length,
+                    nonEmpty: values.length,
+                    empty: originalData.length - values.length,
+                    unique: new Set(values).size,
+                    isNumeric: numericValues.length > 0,
+                    min: numericValues.length > 0 ? Math.min(...numericValues) : 'N/A',
+                    max: numericValues.length > 0 ? Math.max(...numericValues) : 'N/A',
+                    avg: numericValues.length > 0 ? (numericValues.reduce((a, b) => a + b, 0) / numericValues.length).toFixed(2) : 'N/A',
+                    mostCommon: getMostCommon(values)
+                };
+            });
+            
+            displayStatsModal(stats);
+        }
+        
+        // Display describe
+        function showDescribe() {
+            if (!originalData || originalData.length === 0) return;
+            
+            const columns = Object.keys(originalData[0]);
+            const describe = {};
+            
+            columns.forEach(col => {
+                const values = originalData.map(row => row[col]).filter(val => val !== null && val !== undefined && val !== '');
+                const numericValues = values.map(val => parseFloat(val)).filter(val => !isNaN(val));
+                
+                if (numericValues.length > 0) {
+                    const sorted = numericValues.sort((a, b) => a - b);
+                    const q1 = getPercentile(sorted, 25);
+                    const median = getPercentile(sorted, 50);
+                    const q3 = getPercentile(sorted, 75);
+                    const mean = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+                    const variance = numericValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / numericValues.length;
+                    const std = Math.sqrt(variance);
+                    
+                    describe[col] = {
+                        count: numericValues.length,
+                        mean: mean.toFixed(2),
+                        std: std.toFixed(2),
+                        min: Math.min(...numericValues),
+                        '25%': q1.toFixed(2),
+                        '50%': median.toFixed(2),
+                        '75%': q3.toFixed(2),
+                        max: Math.max(...numericValues)
+                    };
+                } else {
+                    describe[col] = {
+                        count: values.length,
+                        unique: new Set(values).size,
+                        top: getMostCommon(values),
+                        freq: getMostCommonFreq(values)
+                    };
+                }
+            });
+            
+            displayDescribeModal(describe);
+        }
+        
+        // Wyświetlanie typów danych
+        function showDtypes() {
+            if (!originalData || originalData.length === 0) return;
+            
+            const columns = Object.keys(originalData[0]);
+            const dtypes = {};
+            
+            columns.forEach(col => {
+                const values = originalData.map(row => row[col]).filter(val => val !== null && val !== undefined && val !== '');
+                const numericValues = values.map(val => parseFloat(val)).filter(val => !isNaN(val));
+                const dateValues = values.filter(val => !isNaN(Date.parse(val)));
+                
+                if (numericValues.length === values.length && values.length > 0) {
+                    dtypes[col] = 'numeric';
+                } else if (dateValues.length > values.length * 0.5) {
+                    dtypes[col] = 'datetime';
+                } else if (values.every(val => typeof val === 'boolean' || val === 'true' || val === 'false')) {
+                    dtypes[col] = 'boolean';
+                } else {
+                    dtypes[col] = 'string';
+                }
+            });
+            
+            displayDtypesModal(dtypes);
+        }
+        
+        // Funkcje pomocnicze
+        function getMostCommon(array) {
+            const counts = {};
+            array.forEach(val => counts[val] = (counts[val] || 0) + 1);
+            return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b, '');
+        }
+        
+        function getMostCommonFreq(array) {
+            const counts = {};
+            array.forEach(val => counts[val] = (counts[val] || 0) + 1);
+            return Math.max(...Object.values(counts));
+        }
+        
+        function getPercentile(sorted, percentile) {
+            const index = (percentile / 100) * (sorted.length - 1);
+            if (Math.floor(index) === index) {
+                return sorted[index];
+            } else {
+                const lower = sorted[Math.floor(index)];
+                const upper = sorted[Math.ceil(index)];
+                return lower + (upper - lower) * (index - Math.floor(index));
+            }
+        }
+        
+        // Wyświetlanie modali
+        function displayStatsModal(stats) {
+            const content = document.getElementById('statsContent');
+            let html = '<div class="table-responsive"><table class="table table-striped">';
+            html += '<thead><tr><th>Kolumna</th><th>Wszystkie</th><th>Niepuste</th><th>Puste</th><th>Unikalne</th><th>Min</th><th>Max</th><th>Średnia</th><th>Najczęstsze</th></tr></thead><tbody>';
+            
+            Object.keys(stats).forEach(col => {
+                const s = stats[col];
+                html += `<tr>
+                    <td><strong>${col}</strong></td>
+                    <td>${s.total}</td>
+                    <td>${s.nonEmpty}</td>
+                    <td>${s.empty}</td>
+                    <td>${s.unique}</td>
+                    <td>${s.min}</td>
+                    <td>${s.max}</td>
+                    <td>${s.avg}</td>
+                    <td>${s.mostCommon}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+            new bootstrap.Modal(document.getElementById('statsModal')).show();
+        }
+        
+        function displayDescribeModal(describe) {
+            const content = document.getElementById('statsContent');
+            let html = '<div class="table-responsive"><table class="table table-striped">';
+            html += '<thead><tr><th>Kolumna</th><th>Count</th><th>Mean/Unique</th><th>Std/Top</th><th>Min/Freq</th><th>25%</th><th>50%</th><th>75%</th><th>Max</th></tr></thead><tbody>';
+            
+            Object.keys(describe).forEach(col => {
+                const d = describe[col];
+                if (d.mean !== undefined) {
+                    // Numeric column
+                    html += `<tr>
+                        <td><strong>${col}</strong></td>
+                        <td>${d.count}</td>
+                        <td>${d.mean}</td>
+                        <td>${d.std}</td>
+                        <td>${d.min}</td>
+                        <td>${d['25%']}</td>
+                        <td>${d['50%']}</td>
+                        <td>${d['75%']}</td>
+                        <td>${d.max}</td>
+                    </tr>`;
+                } else {
+                    // String column
+                    html += `<tr>
+                        <td><strong>${col}</strong></td>
+                        <td>${d.count}</td>
+                        <td>${d.unique}</td>
+                        <td>${d.top}</td>
+                        <td>${d.freq}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>`;
+                }
+            });
+            
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+            new bootstrap.Modal(document.getElementById('statsModal')).show();
+        }
+        
+        function displayDtypesModal(dtypes) {
+            const content = document.getElementById('statsContent');
+            let html = '<div class="table-responsive"><table class="table table-striped">';
+            html += '<thead><tr><th>Kolumna</th><th>Typ danych</th></tr></thead><tbody>';
+            
+            Object.keys(dtypes).forEach(col => {
+                const typeClass = {
+                    'numeric': 'text-primary',
+                    'string': 'text-success',
+                    'datetime': 'text-warning',
+                    'boolean': 'text-info'
+                }[dtypes[col]];
+                
+                html += `<tr>
+                    <td><strong>${col}</strong></td>
+                    <td><span class="${typeClass}">${dtypes[col]}</span></td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+            new bootstrap.Modal(document.getElementById('statsModal')).show();
+        }
+        
+        // Funkcje pomocnicze
+        function showLoading() {
+            loadingSection.style.display = 'block';
+        }
+        
+        function hideLoading() {
+            loadingSection.style.display = 'none';
+        }
+        
+        function hideAllSections() {
+            resultsSection.style.display = 'none';
+            errorSection.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

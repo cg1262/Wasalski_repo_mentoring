@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Podsumowanie - Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">
+            <i class="fas fa-chart-pie"></i> Podsumowanie finansowe
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card income-card">
+            <div class="card-body text-center">
+                <i class="fas fa-plus-circle fa-3x mb-3"></i>
+                <h4>Przychody</h4>
+                <h2>{{ "%.2f"|format(total_income) }} zł</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card expense-card">
+            <div class="card-body text-center">
+                <i class="fas fa-minus-circle fa-3x mb-3"></i>
+                <h4>Wydatki</h4>
+                <h2>{{ "%.2f"|format(total_expenses) }} zł</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card summary-card">
+            <div class="card-body text-center">
+                <i class="fas fa-percentage fa-3x mb-3"></i>
+                <h4>Podatki</h4>
+                <h2>{{ "%.2f"|format(total_tax) }} zł</h2>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card balance-card">
+            <div class="card-body text-center">
+                <i class="fas fa-balance-scale fa-3x mb-3"></i>
+                <h4>Saldo</h4>
+                <h2>{{ "%.2f"|format(balance) }} zł</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5><i class="fas fa-calculator"></i> Szczegóły obliczeń</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr>
+                        <td><strong>Całkowite przychody:</strong></td>
+                        <td class="text-end">{{ "%.2f"|format(total_income) }} zł</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Podatki (12%):</strong></td>
+                        <td class="text-end text-danger">-{{ "%.2f"|format(total_tax) }} zł</td>
+                    </tr>
+                    <tr class="table-success">
+                        <td><strong>Przychody netto:</strong></td>
+                        <td class="text-end"><strong>{{ "%.2f"|format(net_income) }} zł</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Całkowite wydatki:</strong></td>
+                        <td class="text-end text-danger">-{{ "%.2f"|format(total_expenses) }} zł</td>
+                    </tr>
+                    <tr class="{% if balance >= 0 %}table-success{% else %}table-danger{% endif %}">
+                        <td><strong>Saldo końcowe:</strong></td>
+                        <td class="text-end"><strong>{{ "%.2f"|format(balance) }} zł</strong></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-warning text-white">
+                <h5><i class="fas fa-chart-bar"></i> Wskaźniki finansowe</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Wskaźnik wydatków do przychodów:</label>
+                    <div class="progress">
+                        {% set expense_ratio = (total_expenses / total_income * 100) if total_income > 0 else 0 %}
+                        <div class="progress-bar {% if expense_ratio > 80 %}bg-danger{% elif expense_ratio > 60 %}bg-warning{% else %}bg-success{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ expense_ratio }}%">
+                            {{ "%.1f"|format(expense_ratio) }}%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Wskaźnik oszczędności:</label>
+                    <div class="progress">
+                        {% set savings_ratio = (balance / total_income * 100) if total_income > 0 else 0 %}
+                        <div class="progress-bar {% if savings_ratio < 10 %}bg-danger{% elif savings_ratio < 20 %}bg-warning{% else %}bg-success{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ savings_ratio if savings_ratio > 0 else 0 }}%">
+                            {{ "%.1f"|format(savings_ratio) }}%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert {% if balance >= 0 %}alert-success{% else %}alert-danger{% endif %}" role="alert">
+                    {% if balance >= 0 %}
+                        <i class="fas fa-check-circle"></i> Twoje finanse są zrównoważone!
+                    {% else %}
+                        <i class="fas fa-exclamation-triangle"></i> Uwaga! Wydatki przekraczają przychody!
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12 text-center">
+        <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg">
+            <i class="fas fa-arrow-left"></i> Powrót do głównej
+        </a>
+    </div>
+</div>
+{% endblock %}
