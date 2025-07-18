@@ -93,6 +93,7 @@
                             <tr>
                                 <th>Data</th>
                                 <th>Opis</th>
+                                <th>Szczegóły</th>
                                 <th class="text-end">Kwota</th>
                                 <th>Akcje</th>
                             </tr>
@@ -102,6 +103,21 @@
                             <tr>
                                 <td>{{ income.date }}</td>
                                 <td>{{ income.description }}</td>
+                                <td>
+                                    {% if income.hours %}
+                                        <span class="badge bg-info" 
+                                              data-bs-toggle="tooltip" 
+                                              data-bs-placement="top" 
+                                              title="Brutto: {{ "%.2f"|format(income.hours * income.hourly_rate) }} zł | VAT: {{ "%.2f"|format(income.hours * income.hourly_rate * income.vat_rate / 100) }} zł | Podatek: {{ "%.2f"|format(income.hours * income.hourly_rate * income.tax_rate / 100) }} zł">
+                                            <i class="fas fa-clock"></i> {{ income.hours }}h × {{ "%.2f"|format(income.hourly_rate) }} zł/h
+                                        </span>
+                                        <br><small class="text-muted">VAT: {{ income.vat_rate }}% | Podatek: {{ income.tax_rate }}%</small>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-hand-holding-usd"></i> Stała kwota
+                                        </span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-end text-success"><strong>+{{ "%.2f"|format(income.amount) }} zł</strong></td>
                                 <td>
                                     <a href="{{ url_for('delete_income', id=income.id) }}" 
@@ -115,7 +131,7 @@
                         </tbody>
                         <tfoot>
                             <tr class="table-success">
-                                <td colspan="2"><strong>SUMA PRZYCHODÓW:</strong></td>
+                                <td colspan="3"><strong>SUMA PRZYCHODÓW:</strong></td>
                                 <td class="text-end"><strong>{{ "%.2f"|format(total_actual_income) }} zł</strong></td>
                                 <td></td>
                             </tr>

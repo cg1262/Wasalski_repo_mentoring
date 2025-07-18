@@ -252,6 +252,33 @@ def calculate_tax():
         'tax_rate': tax_rate
     })
 
+@app.route('/calculate_hourly', methods=['POST'])
+def calculate_hourly():
+    """API endpoint for real-time hourly calculations"""
+    data = request.get_json()
+    hours = float(data.get('hours', 0))
+    hourly_rate = float(data.get('hourly_rate', 0))
+    vat_rate = float(data.get('vat_rate', 23.0))
+    tax_rate = float(data.get('tax_rate', 12.0))
+    
+    gross_amount = hours * hourly_rate
+    vat_amount = gross_amount * (vat_rate / 100)
+    total_with_vat = gross_amount + vat_amount
+    tax_amount = gross_amount * (tax_rate / 100)
+    net_amount = gross_amount - tax_amount
+    
+    return jsonify({
+        'gross_amount': gross_amount,
+        'vat_amount': vat_amount,
+        'total_with_vat': total_with_vat,
+        'tax_amount': tax_amount,
+        'net_amount': net_amount,
+        'hours': hours,
+        'hourly_rate': hourly_rate,
+        'vat_rate': vat_rate,
+        'tax_rate': tax_rate
+    })
+
 @app.route('/summary')
 def summary():
     conn = get_db_connection()
@@ -709,14 +736,40 @@ def month_detail(year, month):
 def add_month_income(year, month):
     if request.method == 'POST':
         description = request.form['description']
-        amount = float(request.form['amount'])
         date = request.form['date']
         
         conn = get_db_connection()
-        conn.execute('''
-            INSERT INTO income (description, amount, date)
-            VALUES (?, ?, ?)
-        ''', (description, amount, date))
+        
+        # Sprawdź czy to przychód z godzin
+        if 'hours' in request.form and request.form['hours']:
+            hours = float(request.form['hours'])
+            hourly_rate = float(request.form['hourly_rate'])
+            vat_rate = float(request.form.get('vat_rate', 23.0))
+            tax_rate = float(request.form.get('tax_rate', 12.0))
+            
+            # Oblicz kwotę brutto
+            gross_amount = hours * hourly_rate
+            vat_amount = gross_amount * (vat_rate / 100)
+            total_with_vat = gross_amount + vat_amount
+            
+            # Oblicz podatek
+            tax_amount = gross_amount * (tax_rate / 100)
+            net_amount = gross_amount - tax_amount
+            
+            conn.execute('''
+                INSERT INTO income (description, amount, date, hours, hourly_rate, vat_rate, tax_rate)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (description, total_with_vat, date, hours, hourly_rate, vat_rate, tax_rate))
+            
+        else:
+            amount = float(request.form['amount'])
+            tax_rate = float(request.form.get('tax_rate', 12.0))
+            
+            conn.execute('''
+                INSERT INTO income (description, amount, date, tax_rate)
+                VALUES (?, ?, ?, ?)
+            ''', (description, amount, date, tax_rate))
+        
         conn.commit()
         conn.close()
         
