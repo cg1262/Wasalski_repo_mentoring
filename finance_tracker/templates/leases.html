@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Raty - Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">
+            <i class="fas fa-credit-card"></i> Zarządzanie ratami
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-list"></i> Lista rat</h5>
+                <a href="{{ url_for('add_lease') }}" class="btn btn-light">
+                    <i class="fas fa-plus"></i> Dodaj ratę
+                </a>
+            </div>
+            <div class="card-body">
+                {% if leases %}
+                <div class="alert alert-info">
+                    <strong>Suma miesięcznych rat:</strong> {{ "%.2f"|format(total_monthly) }} zł
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Opis</th>
+                                <th>Kwota raty</th>
+                                <th>Pozostało rat</th>
+                                <th>Pozostała kwota</th>
+                                <th>Następna płatność</th>
+                                <th>Ostatnia rata</th>
+                                <th>Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lease in leases %}
+                            <tr {% if lease.remaining_installments == 0 %}class="table-success"{% endif %}>
+                                <td>{{ lease.description }}</td>
+                                <td>{{ "%.2f"|format(lease.installment_amount) }} zł</td>
+                                <td>
+                                    {% if lease.remaining_installments > 0 %}
+                                        <span class="badge bg-warning">{{ lease.remaining_installments }}</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Spłacone</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.2f"|format(lease.remaining_amount) }} zł</td>
+                                <td>{{ lease.next_payment_date }}</td>
+                                <td>{{ lease.last_payment_date }}</td>
+                                <td>
+                                    {% if lease.remaining_installments > 0 %}
+                                        <a href="{{ url_for('pay_lease', id=lease.id) }}" 
+                                           class="btn btn-success btn-sm"
+                                           onclick="return confirm('Czy na pewno chcesz opłacić tę ratę?')">
+                                            <i class="fas fa-check"></i> Opłać
+                                        </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-credit-card fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Brak rat do wyświetlenia</p>
+                    <a href="{{ url_for('add_lease') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Dodaj pierwszą ratę
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

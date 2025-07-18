@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}{{ month_name }} {{ year }} - Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-calendar"></i> {{ month_name }} {{ year }}
+            </h1>
+            <div>
+                {% if month > 1 %}
+                    <a href="{{ url_for('month_detail', year=year, month=month-1) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-chevron-left"></i> {{ (month_names[month-1] if month > 1 else month_names[12]) }}
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('month_detail', year=year-1, month=12) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-chevron-left"></i> Grudzień {{ year-1 }}
+                    </a>
+                {% endif %}
+                
+                <a href="{{ url_for('projections') }}" class="btn btn-info mx-2">
+                    <i class="fas fa-chart-bar"></i> Projekcje
+                </a>
+                
+                {% if month < 12 %}
+                    <a href="{{ url_for('month_detail', year=year, month=month+1) }}" class="btn btn-outline-primary">
+                        {{ (month_names[month+1] if month < 12 else month_names[1]) }} <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('month_detail', year=year+1, month=1) }}" class="btn btn-outline-primary">
+                        Styczeń {{ year+1 }} <i class="fas fa-chevron-right"></i>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h6>Przychody (faktyczne)</h6>
+                <h4>{{ "%.2f"|format(total_actual_income) }} zł</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <h6>Wydatki (faktyczne)</h6>
+                <h4>{{ "%.2f"|format(total_actual_expenses) }} zł</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h6>Przeniesienie z poprzedniego</h6>
+                <h4>{{ "%.2f"|format(carryover) }} zł</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card {% if (total_actual_income + carryover - total_actual_expenses) >= 0 %}bg-success{% else %}bg-warning{% endif %} text-white">
+            <div class="card-body text-center">
+                <h6>Saldo końcowe</h6>
+                <h4>{{ "%.2f"|format(total_actual_income + carryover - total_actual_expenses) }} zł</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div class="row">
+    <!-- Income Section -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-plus-circle"></i> Przychody</h5>
+                <a href="{{ url_for('add_month_income', year=year, month=month) }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-plus"></i> Dodaj
+                </a>
+            </div>
+            <div class="card-body">
+                {% if actual_income %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Opis</th>
+                                <th class="text-end">Kwota</th>
+                                <th>Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for income in actual_income %}
+                            <tr>
+                                <td>{{ income.date }}</td>
+                                <td>{{ income.description }}</td>
+                                <td class="text-end text-success"><strong>+{{ "%.2f"|format(income.amount) }} zł</strong></td>
+                                <td>
+                                    <a href="{{ url_for('delete_income', id=income.id) }}" 
+                                       class="btn btn-danger btn-sm" 
+                                       onclick="return confirm('Czy na pewno chcesz usunąć?')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-success">
+                                <td colspan="2"><strong>SUMA PRZYCHODÓW:</strong></td>
+                                <td class="text-end"><strong>{{ "%.2f"|format(total_actual_income) }} zł</strong></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-plus-circle fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Brak przychodów w tym miesiącu</p>
+                    <a href="{{ url_for('add_month_income', year=year, month=month) }}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> Dodaj pierwszy przychód
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Expenses Section -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-minus-circle"></i> Wydatki</h5>
+                <a href="{{ url_for('add_month_expense', year=year, month=month) }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-plus"></i> Dodaj
+                </a>
+            </div>
+            <div class="card-body">
+                {% if actual_expenses or planned_lease_expenses or planned_yearly_expenses %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Opis</th>
+                                <th>Kategoria</th>
+                                <th class="text-end">Kwota</th>
+                                <th>Status</th>
+                                <th>Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Actual Expenses -->
+                            {% for expense in actual_expenses %}
+                            <tr class="table-light">
+                                <td>{{ expense.date }}</td>
+                                <td>{{ expense.description }}</td>
+                                <td><span class="badge bg-secondary">{{ expense.category or 'Brak' }}</span></td>
+                                <td class="text-end text-danger"><strong>-{{ "%.2f"|format(expense.amount) }} zł</strong></td>
+                                <td><span class="badge bg-success">Opłacone</span></td>
+                                <td>
+                                    <a href="{{ url_for('delete_expense', id=expense.id) }}" 
+                                       class="btn btn-danger btn-sm" 
+                                       onclick="return confirm('Czy na pewno chcesz usunąć?')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            
+                            <!-- Planned Lease Expenses -->
+                            {% for expense in planned_lease_expenses %}
+                            <tr class="table-warning">
+                                <td>{{ expense.date }}</td>
+                                <td>{{ expense.description }}</td>
+                                <td><span class="badge bg-info">{{ expense.category }}</span></td>
+                                <td class="text-end text-warning"><strong>-{{ "%.2f"|format(expense.amount) }} zł</strong></td>
+                                <td><span class="badge bg-warning">Planowana rata</span></td>
+                                <td>
+                                    <a href="{{ url_for('pay_lease_from_month', lease_id=expense.lease_id, year=year, month=month) }}" 
+                                       class="btn btn-success btn-sm" 
+                                       onclick="return confirm('Czy na pewno chcesz opłacić tę ratę?')">
+                                        <i class="fas fa-check"></i> Opłać
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            
+                            <!-- Planned Yearly Expenses -->
+                            {% for expense in planned_yearly_expenses %}
+                            <tr class="table-info">
+                                <td>{{ expense.planned_date }}</td>
+                                <td>{{ expense.description }}</td>
+                                <td><span class="badge bg-primary">{{ expense.category or 'Planowane' }}</span></td>
+                                <td class="text-end text-info"><strong>-{{ "%.2f"|format(expense.amount) }} zł</strong></td>
+                                <td><span class="badge bg-info">Planowane roczne</span></td>
+                                <td>
+                                    <a href="{{ url_for('mark_yearly_paid', id=expense.id) }}" 
+                                       class="btn btn-success btn-sm" 
+                                       onclick="return confirm('Czy na pewno chcesz oznaczyć jako opłacone?')">
+                                        <i class="fas fa-check"></i> Opłać
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-danger">
+                                <td colspan="3"><strong>SUMA WYDATKÓW:</strong></td>
+                                <td class="text-end"><strong>{{ "%.2f"|format(total_actual_expenses + total_planned_lease + total_planned_yearly) }} zł</strong></td>
+                                <td colspan="2">
+                                    <small class="text-muted">
+                                        Faktyczne: {{ "%.2f"|format(total_actual_expenses) }} zł<br>
+                                        Planowane: {{ "%.2f"|format(total_planned_lease + total_planned_yearly) }} zł
+                                    </small>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-minus-circle fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Brak wydatków w tym miesiącu</p>
+                    <a href="{{ url_for('add_month_expense', year=year, month=month) }}" class="btn btn-danger">
+                        <i class="fas fa-plus"></i> Dodaj pierwszy wydatek
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Legend -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h6><i class="fas fa-info-circle"></i> Legenda</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <span class="badge bg-success">Opłacone</span> - Faktyczne wydatki/przychody
+                    </div>
+                    <div class="col-md-3">
+                        <span class="badge bg-warning">Planowana rata</span> - Raty do opłacenia
+                    </div>
+                    <div class="col-md-3">
+                        <span class="badge bg-info">Planowane roczne</span> - Zaplanowane wydatki
+                    </div>
+                    <div class="col-md-3">
+                        <span class="badge bg-secondary">Kategoria</span> - Typ wydatku
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Month names for navigation
+    const month_names = ['', 'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 
+                        'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
+</script>
+{% endblock %}

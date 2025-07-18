@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Projekcje miesięczne - Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">
+            <i class="fas fa-chart-bar"></i> Projekcje miesięczne
+        </h1>
+        <div class="alert alert-info d-flex justify-content-between align-items-start">
+            <div>
+                <h6><i class="fas fa-info-circle"></i> Jak to działa:</h6>
+                <p class="mb-2">System automatycznie przenosi nadwyżkę z poprzedniego miesiąca do następnego. 
+                Kwota dostępna = Przychody + Przeniesienie z poprzedniego miesiąca - Wydatki - Transfer na oszczędności</p>
+                <p class="mb-0"><strong>Automatyczne wydatki:</strong> System automatycznie dodaje raty leasingowe i planowane wydatki roczne do każdego miesiąca.</p>
+            </div>
+            <form method="POST" action="{{ url_for('refresh_automatic_expenses') }}" class="ms-3">
+                <button type="submit" class="btn btn-outline-info btn-sm" 
+                        onclick="return confirm('Czy na pewno chcesz przeliczyć wszystkie automatyczne wydatki? To zresetuje wszystkie projekcje.')">
+                    <i class="fas fa-sync-alt"></i> Przelicz ponownie
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h5><i class="fas fa-piggy-bank"></i> Saldo konta oszczędnościowego</h5>
+                <h2>{{ "%.2f"|format(savings_balance) }} zł</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% for projection in projections %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-calendar"></i> {{ projection.month_name }} {{ projection.year }}
+                </h6>
+                <a href="{{ url_for('month_detail', year=projection.year, month=projection.month) }}" 
+                   class="btn btn-light btn-sm">
+                    <i class="fas fa-eye"></i> Szczegóły
+                </a>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('update_projection', year=projection.year, month=projection.month) }}">
+                    <div class="mb-2">
+                        <label class="form-label small">Planowane przychody (zł):</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" 
+                               name="planned_income" value="{{ projection.planned_income or 0 }}">
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="form-label small">Planowane wydatki (zł):</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" 
+                               name="planned_expenses" value="{{ projection.planned_expenses or 0 }}">
+                        {% if projection.automatic_expenses > 0 %}
+                        <div class="small text-info mt-1">
+                            <i class="fas fa-info-circle"></i> Automatyczne: {{ "%.2f"|format(projection.automatic_expenses) }} zł
+                            {% if projection.lease_expenses > 0 %}
+                                <br>• Raty: {{ "%.2f"|format(projection.lease_expenses) }} zł
+                            {% endif %}
+                            {% if projection.yearly_expenses > 0 %}
+                                <br>• Planowane roczne: {{ "%.2f"|format(projection.yearly_expenses) }} zł
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="form-label small">Przeniesienie z poprzedniego:</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" 
+                               value="{{ "%.2f"|format(projection.carryover_from_previous) }}" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small">Transfer na oszczędności (zł):</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" 
+                               name="savings_transfer" value="{{ projection.savings_transfer or 0 }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body p-2">
+                                <small><strong>Dostępne po miesiącu:</strong></small><br>
+                                <span class="h6 {% if projection.available_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.2f"|format(projection.available_balance) }} zł
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-save"></i> Zapisz
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5><i class="fas fa-chart-line"></i> Podsumowanie projekcji</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Miesiąc</th>
+                                <th>Przychody</th>
+                                <th>Wydatki</th>
+                                <th>Przeniesienie</th>
+                                <th>Transfer na oszczędności</th>
+                                <th>Dostępne</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for projection in projections %}
+                            <tr>
+                                <td><strong>{{ projection.month_name[:3] }} {{ projection.year }}</strong></td>
+                                <td class="text-success">+{{ "%.0f"|format(projection.planned_income) }}</td>
+                                <td class="text-danger">-{{ "%.0f"|format(projection.planned_expenses) }}</td>
+                                <td class="text-info">+{{ "%.0f"|format(projection.carryover_from_previous) }}</td>
+                                <td class="text-warning">-{{ "%.0f"|format(projection.savings_transfer or 0) }}</td>
+                                <td class="{% if projection.available_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    <strong>{{ "%.0f"|format(projection.available_balance) }}</strong>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-calculate available balance when inputs change
+    document.querySelectorAll('input[type="number"]').forEach(input => {
+        input.addEventListener('input', function() {
+            const card = this.closest('.card-body');
+            const income = parseFloat(card.querySelector('input[name="planned_income"]').value) || 0;
+            const expenses = parseFloat(card.querySelector('input[name="planned_expenses"]').value) || 0;
+            const carryover = parseFloat(card.querySelector('input[readonly]').value) || 0;
+            const transfer = parseFloat(card.querySelector('input[name="savings_transfer"]').value) || 0;
+            
+            const available = income + carryover - expenses - transfer;
+            const availableSpan = card.querySelector('.h6');
+            availableSpan.textContent = available.toFixed(2) + ' zł';
+            availableSpan.className = available >= 0 ? 'h6 text-success' : 'h6 text-danger';
+        });
+    });
+</script>
+{% endblock %}
