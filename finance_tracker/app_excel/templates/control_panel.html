@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Panel kontrolny - Finance Tracker Excel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-cog"></i> Panel kontrolny - główne ustawienia</h4>
+                <small class="text-muted">Jak w Excel - ustaw podstawowe parametry finansowe</small>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="controlPanelForm">
+                    <div class="row">
+                        <!-- Income Settings -->
+                        <div class="col-md-6">
+                            <div class="excel-summary-box excel-summary-positive mb-3">
+                                <h6><i class="fas fa-money-bill-wave"></i> Ustawienia przychodów</h6>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="monthly_income_net" class="form-label">
+                                    <i class="fas fa-calculator"></i> Przychód miesięczny netto (zł)
+                                </label>
+                                <input type="number" step="0.01" class="form-control excel-input" 
+                                       id="monthly_income_net" name="monthly_income_net" 
+                                       value="{{ control_data.monthly_income_net if control_data else '43673.21' }}"
+                                       required onchange="calculateGross()">
+                                <div class="form-text">Docelowy przychód miesięczny po podatkach</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="monthly_hours" class="form-label">
+                                    <i class="fas fa-clock"></i> Liczba godzin miesięcznie
+                                </label>
+                                <input type="number" step="0.1" class="form-control excel-input" 
+                                       id="monthly_hours" name="monthly_hours" 
+                                       value="{{ control_data.monthly_hours if control_data else '180' }}"
+                                       required onchange="calculateGross()">
+                                <div class="form-text">Planowana liczba godzin pracy w miesiącu</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="hourly_rate" class="form-label">
+                                    <i class="fas fa-hand-holding-usd"></i> Stawka za godzinę (zł)
+                                </label>
+                                <input type="number" step="0.01" class="form-control excel-input" 
+                                       id="hourly_rate" name="hourly_rate" 
+                                       value="{{ control_data.hourly_rate if control_data else '140' }}"
+                                       required onchange="calculateGross()">
+                                <div class="form-text">Stawka brutto za godzinę pracy</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="vat_rate" class="form-label">
+                                    <i class="fas fa-percentage"></i> Stawka VAT (%)
+                                </label>
+                                <input type="number" step="0.01" class="form-control excel-input" 
+                                       id="vat_rate" name="vat_rate" 
+                                       value="{{ control_data.vat_rate if control_data else '23' }}"
+                                       required onchange="calculateGross()">
+                                <div class="form-text">Standardowa stawka VAT w Polsce</div>
+                            </div>
+                        </div>
+
+                        <!-- Cost Settings -->
+                        <div class="col-md-6">
+                            <div class="excel-summary-box excel-summary-neutral mb-3">
+                                <h6><i class="fas fa-home"></i> Ustawienia kosztów</h6>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="rent_cost" class="form-label">
+                                    <i class="fas fa-home"></i> Koszt wynajmu (zł)
+                                </label>
+                                <input type="number" step="0.01" class="form-control excel-input" 
+                                       id="rent_cost" name="rent_cost" 
+                                       value="{{ control_data.rent_cost if control_data else '0' }}"
+                                       required>
+                                <div class="form-text">Miesięczny koszt wynajmu mieszkania/biura</div>
+                            </div>
+
+                            <!-- Calculation Preview -->
+                            <div class="excel-summary-box" id="calculationPreview">
+                                <h6><i class="fas fa-calculator"></i> Podgląd obliczeń</h6>
+                                <div class="row text-start">
+                                    <div class="col-12 mb-2">
+                                        <strong>Przychód brutto:</strong>
+                                        <span class="float-end excel-number" id="grossAmount">0.00 zł</span>
+                                    </div>
+                                    <div class="col-12 mb-2">
+                                        <strong>VAT (23%):</strong>
+                                        <span class="float-end excel-number" id="vatAmount">0.00 zł</span>
+                                    </div>
+                                    <div class="col-12 mb-2">
+                                        <strong>Przychód z VAT:</strong>
+                                        <span class="float-end excel-number" id="grossWithVat">0.00 zł</span>
+                                    </div>
+                                    <div class="col-12 mb-2 border-top pt-2">
+                                        <strong>Efektywna stawka:</strong>
+                                        <span class="float-end excel-number" id="effectiveRate">0.00 zł/h</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Excel-like formulas display -->
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <strong>Formuły (jak w Excel):</strong><br>
+                                    Brutto = Godziny × Stawka<br>
+                                    VAT = Brutto × (VAT% / 100)<br>
+                                    Z VAT = Brutto + VAT<br>
+                                    Efektywna = Netto / Godziny
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{{ url_for('index') }}" class="btn btn-excel-secondary me-md-2">
+                                    <i class="fas fa-arrow-left"></i> Powrót do głównej
+                                </a>
+                                <button type="submit" class="btn btn-excel-primary">
+                                    <i class="fas fa-save"></i> Zapisz ustawienia
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle"></i> Pomoc - jak używać panelu kontrolnego</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Przychód miesięczny netto</h6>
+                        <p class="small">To jest docelowa kwota, którą chcesz zarabiać miesięcznie po odliczeniu podatków. Aplikacja będzie obliczać czy jesteś na dobrej drodze do osiągnięcia tego celu.</p>
+                        
+                        <h6>Liczba godzin</h6>
+                        <p class="small">Planowana liczba godzin pracy w miesiącu. Używana do obliczania efektywnej stawki godzinowej i planowania czasu pracy.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Stawka za godzinę</h6>
+                        <p class="small">Stawka brutto, którą naliczasz klientom. Na tej podstawie aplikacja obliczy przychód z VAT i pomoże planować faktury.</p>
+                        
+                        <h6>VAT</h6>
+                        <p class="small">Standardowa stawka VAT. W Polsce to zazwyczaj 23% dla większości usług. Aplikacja automatycznie obliczy kwoty z VAT.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function calculateGross() {
+        const hours = parseFloat(document.getElementById('monthly_hours').value) || 0;
+        const rate = parseFloat(document.getElementById('hourly_rate').value) || 0;
+        const vatRate = parseFloat(document.getElementById('vat_rate').value) || 23;
+        const netIncome = parseFloat(document.getElementById('monthly_income_net').value) || 0;
+        
+        // Excel-like calculations
+        const grossAmount = hours * rate;
+        const vatAmount = grossAmount * (vatRate / 100);
+        const grossWithVat = grossAmount + vatAmount;
+        const effectiveRate = hours > 0 ? netIncome / hours : 0;
+        
+        // Update display
+        document.getElementById('grossAmount').textContent = grossAmount.toFixed(2) + ' zł';
+        document.getElementById('vatAmount').textContent = vatAmount.toFixed(2) + ' zł';
+        document.getElementById('grossWithVat').textContent = grossWithVat.toFixed(2) + ' zł';
+        document.getElementById('effectiveRate').textContent = effectiveRate.toFixed(2) + ' zł/h';
+        
+        // Change colors based on calculations
+        const preview = document.getElementById('calculationPreview');
+        if (grossWithVat >= netIncome * 1.5) {
+            preview.className = 'excel-summary-box excel-summary-positive';
+        } else if (grossWithVat >= netIncome * 1.2) {
+            preview.className = 'excel-summary-box excel-summary-neutral';
+        } else {
+            preview.className = 'excel-summary-box excel-summary-negative';
+        }
+    }
+    
+    // Auto-calculate on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        calculateGross();
+        
+        // Add change listeners to all inputs
+        ['monthly_hours', 'hourly_rate', 'vat_rate', 'monthly_income_net'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calculateGross);
+        });
+    });
+    
+    // Form validation
+    document.getElementById('controlPanelForm').addEventListener('submit', function(e) {
+        const requiredFields = ['monthly_income_net', 'monthly_hours', 'hourly_rate', 'vat_rate'];
+        let isValid = true;
+        
+        requiredFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            const value = parseFloat(field.value);
+            
+            if (isNaN(value) || value < 0) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert('Proszę wypełnić wszystkie pola poprawnymi wartościami liczbowymi.');
+        }
+    });
+</script>
+{% endblock %}

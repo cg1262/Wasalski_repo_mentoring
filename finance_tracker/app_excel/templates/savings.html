@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% block title %}Konto oszczędnościowe - Finance Tracker Excel{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-piggy-bank"></i> Konto oszczędnościowe</h2>
+            <div class="btn-group">
+                <button class="btn btn-excel-primary" data-bs-toggle="modal" data-bs-target="#addTransactionModal" onclick="setTransactionType('deposit')">
+                    <i class="fas fa-plus"></i> Wpłata
+                </button>
+                <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#addTransactionModal" onclick="setTransactionType('withdrawal')">
+                    <i class="fas fa-minus"></i> Wypłata
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Balance - Excel-like display -->
+<div class="row mb-4">
+    <div class="col-md-6 offset-md-3">
+        <div class="excel-summary-box {% if balance >= 0 %}excel-summary-positive{% else %}excel-summary-negative{% endif %}">
+            <h4><i class="fas fa-wallet"></i> Aktualne saldo konta oszczędnościowego</h4>
+            <h1 class="excel-number excel-currency">{{ "%.2f"|format(balance) }}</h1>
+            <div class="row mt-3">
+                <div class="col-6">
+                    <small>
+                        <strong>Wpłaty:</strong><br>
+                        {{ "%.2f"|format(transactions|selectattr('transaction_type', 'equalto', 'deposit')|sum(attribute='amount')) }} zł
+                    </small>
+                </div>
+                <div class="col-6">
+                    <small>
+                        <strong>Wypłaty:</strong><br>
+                        {{ "%.2f"|format(transactions|selectattr('transaction_type', 'equalto', 'withdrawal')|sum(attribute='amount')) }} zł
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Summary -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line"></i> Podsumowanie miesięczne</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% set current_year = 2025 %}
+                    {% for month_num in range(1, 13) %}
+                    {% set month_names = ['', 'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'] %}
+                    {% set month_transactions = transactions|selectattr('date', 'match', '^' + current_year|string + '-' + '%02d'|format(month_num)) %}
+                    {% set month_deposits = month_transactions|selectattr('transaction_type', 'equalto', 'deposit')|sum(attribute='amount') %}
+                    {% set month_withdrawals = month_transactions|selectattr('transaction_type', 'equalto', 'withdrawal')|sum(attribute='amount') %}
+                    {% set month_net = month_deposits - month_withdrawals %}
+                    
+                    {% if month_net != 0 %}
+                    <div class="col-md-2 mb-2">
+                        <div class="excel-summary-box {% if month_net > 0 %}excel-summary-positive{% else %}excel-summary-negative{% endif %}">
+                            <h6>{{ month_names[month_num] }}</h6>
+                            <strong class="excel-number">{{ "%.0f"|format(month_net) }} zł</strong>
+                            <small><br>{{ month_transactions|list|length }} transakcji</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions History Table -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-history"></i> Historia transakcji - Excel style</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if transactions %}
+                <table class="table excel-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Typ</th>
+                            <th>Opis</th>
+                            <th>Kwota</th>
+                            <th>Saldo po transakcji</th>
+                            <th>Źródło</th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set running_balance = 0 %}
+                        {% for transaction in transactions %}
+                        {% if transaction.transaction_type == 'deposit' %}
+                            {% set running_balance = running_balance + transaction.amount %}
+                        {% else %}
+                            {% set running_balance = running_balance - transaction.amount %}
+                        {% endif %}
+                        
+                        <tr class="{% if transaction.transaction_type == 'deposit' %}table-success{% else %}table-warning{% endif %}">
+                            <td>{{ transaction.date }}</td>
+                            <td>
+                                {% if transaction.transaction_type == 'deposit' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-arrow-down"></i> Wpłata
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-arrow-up"></i> Wypłata
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ transaction.description }}</strong>
+                                {% if transaction.month_source %}
+                                    <br><small class="text-muted">Z miesiąca: {{ transaction.month_source }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="excel-number">
+                                {% if transaction.transaction_type == 'deposit' %}
+                                    <span class="text-success">+{{ "%.2f"|format(transaction.amount) }} zł</span>
+                                {% else %}
+                                    <span class="text-warning">-{{ "%.2f"|format(transaction.amount) }} zł</span>
+                                {% endif %}
+                            </td>
+                            <td class="excel-number">
+                                <strong>{{ "%.2f"|format(running_balance) }} zł</strong>
+                            </td>
+                            <td>
+                                {% if transaction.month_source %}
+                                    <span class="badge bg-info">Transfer automatyczny</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Transfer ręczny</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-danger btn-sm" onclick="deleteTransaction({{ transaction.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <!-- Final balance row -->
+                        <tr style="background-color: var(--excel-gray); font-weight: bold; border-top: 2px solid var(--excel-dark-gray);">
+                            <td colspan="4"><strong>SALDO KOŃCOWE:</strong></td>
+                            <td class="excel-number"><strong>{{ "%.2f"|format(balance) }} zł</strong></td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-piggy-bank fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Brak transakcji</h5>
+                    <p class="text-muted">Zacznij oszczędzać już dziś!</p>
+                    <button class="btn btn-excel-primary" data-bs-toggle="modal" data-bs-target="#addTransactionModal" onclick="setTransactionType('deposit')">
+                        <i class="fas fa-plus"></i> Pierwsza wpłata
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div class="modal fade" id="addTransactionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="transactionModalTitle">
+                    <i class="fas fa-plus"></i> Dodaj transakcję
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_savings_transaction') }}" id="savingsForm">
+                <div class="modal-body">
+                    <input type="hidden" id="transaction_type" name="transaction_type" value="deposit">
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Opis transakcji</label>
+                        <input type="text" class="form-control excel-input" 
+                               id="description" name="description" 
+                               placeholder="Np. Oszczędności z lipca 2025"
+                               required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Kwota (zł)</label>
+                        <input type="number" step="0.01" class="form-control excel-input" 
+                               id="amount" name="amount" 
+                               placeholder="0.00"
+                               required onchange="updateSavingsPreview()">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Data transakcji</label>
+                        <input type="date" class="form-control excel-input" 
+                               id="date" name="date" 
+                               required onchange="updateSavingsPreview()">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="month_source" class="form-label">Źródło (opcjonalne)</label>
+                        <input type="text" class="form-control excel-input" 
+                               id="month_source" name="month_source" 
+                               placeholder="Np. Lipiec 2025, Transfer z konta głównego">
+                        <div class="form-text">Wskaż skąd pochodzi ta kwota</div>
+                    </div>
+                    
+                    <!-- Preview -->
+                    <div class="excel-summary-box" id="savingsPreview">
+                        <h6><i class="fas fa-calculator"></i> Podgląd transakcji</h6>
+                        <div class="row text-start">
+                            <div class="col-12 mb-2">
+                                <strong>Typ:</strong>
+                                <span class="float-end" id="previewType">Wpłata</span>
+                            </div>
+                            <div class="col-12 mb-2">
+                                <strong>Kwota:</strong>
+                                <span class="float-end excel-number" id="previewSavingsAmount">0.00 zł</span>
+                            </div>
+                            <div class="col-12 mb-2">
+                                <strong>Nowe saldo:</strong>
+                                <span class="float-end excel-number" id="previewNewBalance">{{ "%.2f"|format(balance) }} zł</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-excel-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Anuluj
+                    </button>
+                    <button type="submit" class="btn btn-excel-primary" id="submitSavingsBtn">
+                        <i class="fas fa-save"></i> Dodaj wpłatę
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Excel-like calculations and formulas -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-calculator"></i> Analizy i statystyki (Excel-style)</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <h6>Statystyki ogólne:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Liczba transakcji:</strong> {{ transactions|length }}</li>
+                            <li><strong>Średnia wpłata:</strong> 
+                                {% set avg_deposit = transactions|selectattr('transaction_type', 'equalto', 'deposit')|avg(attribute='amount') %}
+                                {{ "%.2f"|format(avg_deposit if avg_deposit else 0) }} zł
+                            </li>
+                            <li><strong>Średnia wypłata:</strong> 
+                                {% set avg_withdrawal = transactions|selectattr('transaction_type', 'equalto', 'withdrawal')|avg(attribute='amount') %}
+                                {{ "%.2f"|format(avg_withdrawal if avg_withdrawal else 0) }} zł
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Trendy:</h6>
+                        {% set recent_transactions = transactions[:5] %}
+                        {% if recent_transactions|length >= 2 %}
+                        <ul class="list-unstyled">
+                            <li><strong>Ostatnia transakcja:</strong><br>
+                                {{ recent_transactions[0].description[:20] }}...
+                            </li>
+                            <li><strong>Trend:</strong><br>
+                                {% if recent_transactions|selectattr('transaction_type', 'equalto', 'deposit')|list|length > recent_transactions|selectattr('transaction_type', 'equalto', 'withdrawal')|list|length %}
+                                    <span class="text-success">📈 Wzrost oszczędności</span>
+                                {% else %}
+                                    <span class="text-warning">📉 Spadek oszczędności</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Cele oszczędnościowe:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Do 10,000 zł:</strong><br>
+                                {% set progress_10k = (balance / 10000 * 100) %}
+                                <div class="progress">
+                                    <div class="progress-bar" style="width: {{ [progress_10k, 100]|min }}%"></div>
+                                </div>
+                                {{ "%.1f"|format(progress_10k) }}%
+                            </li>
+                            <li><strong>Potrzeba miesięcznie:</strong><br>
+                                {{ "%.2f"|format((10000 - balance) / 12) }} zł
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Formuły:</h6>
+                        <small>
+                            <strong>Saldo:</strong><br>
+                            <code>= SUMA(Wpłaty) - SUMA(Wypłaty)</code><br><br>
+                            <strong>Średnia miesięczna:</strong><br>
+                            <code>= Saldo / Liczba miesięcy</code><br><br>
+                            <strong>Projekt roczny:</strong><br>
+                            <code>= Saldo * 12 / Miesiące aktywne</code>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentBalance = {{ balance }};
+    
+    function setTransactionType(type) {
+        document.getElementById('transaction_type').value = type;
+        
+        if (type === 'deposit') {
+            document.getElementById('transactionModalTitle').innerHTML = '<i class="fas fa-plus"></i> Wpłata na konto oszczędnościowe';
+            document.getElementById('submitSavingsBtn').innerHTML = '<i class="fas fa-save"></i> Dodaj wpłatę';
+            document.getElementById('submitSavingsBtn').className = 'btn btn-excel-primary';
+        } else {
+            document.getElementById('transactionModalTitle').innerHTML = '<i class="fas fa-minus"></i> Wypłata z konta oszczędnościowego';
+            document.getElementById('submitSavingsBtn').innerHTML = '<i class="fas fa-save"></i> Dodaj wypłatę';
+            document.getElementById('submitSavingsBtn').className = 'btn btn-warning';
+        }
+        
+        updateSavingsPreview();
+    }
+    
+    function updateSavingsPreview() {
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const type = document.getElementById('transaction_type').value;
+        
+        // Update preview
+        document.getElementById('previewType').textContent = type === 'deposit' ? 'Wpłata' : 'Wypłata';
+        document.getElementById('previewSavingsAmount').textContent = amount.toFixed(2) + ' zł';
+        
+        // Calculate new balance
+        let newBalance;
+        if (type === 'deposit') {
+            newBalance = currentBalance + amount;
+        } else {
+            newBalance = currentBalance - amount;
+        }
+        document.getElementById('previewNewBalance').textContent = newBalance.toFixed(2) + ' zł';
+        
+        // Update preview box color
+        const preview = document.getElementById('savingsPreview');
+        if (type === 'deposit') {
+            preview.className = 'excel-summary-box excel-summary-positive';
+        } else if (newBalance < 0) {
+            preview.className = 'excel-summary-box excel-summary-negative';
+        } else {
+            preview.className = 'excel-summary-box excel-summary-neutral';
+        }
+    }
+    
+    function deleteTransaction(transactionId) {
+        if (confirm('Czy na pewno chcesz usunąć tę transakcję?\n\nUWAGA: Wpłynie to na saldo konta oszczędnościowego.')) {
+            // This would make an AJAX call or redirect to delete endpoint
+            alert('Funkcjonalność usuwania transakcji zostanie zaimplementowana');
+            // window.location.href = `/savings/transaction/${transactionId}/delete`;
+        }
+    }
+    
+    // Initialize form
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set today's date as default
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+        
+        // Add change listeners
+        document.getElementById('amount').addEventListener('input', updateSavingsPreview);
+        
+        updateSavingsPreview();
+    });
+    
+    // Form validation
+    document.getElementById('savingsForm').addEventListener('submit', function(e) {
+        const description = document.getElementById('description').value.trim();
+        const amount = parseFloat(document.getElementById('amount').value);
+        const type = document.getElementById('transaction_type').value;
+        
+        let errors = [];
+        
+        if (!description) {
+            errors.push('Opis transakcji jest wymagany');
+        }
+        
+        if (isNaN(amount) || amount <= 0) {
+            errors.push('Kwota musi być większa od 0');
+        }
+        
+        // Check for withdrawal exceeding balance
+        if (type === 'withdrawal' && amount > currentBalance) {
+            errors.push(`Nie możesz wypłacić więcej niż masz na koncie (${currentBalance.toFixed(2)} zł)`);
+        }
+        
+        if (errors.length > 0) {
+            e.preventDefault();
+            alert('Błędy w formularzu:\n\n' + errors.join('\n'));
+            return false;
+        }
+        
+        // Confirmation for large amounts
+        if (amount > 5000) {
+            const action = type === 'deposit' ? 'wpłacić' : 'wypłacić';
+            if (!confirm(`Czy na pewno chcesz ${action} kwotę ${amount.toFixed(2)} zł?`)) {
+                e.preventDefault();
+                return false;
+            }
+        }
+    });
+    
+    // Excel-like keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+D for deposit
+        if (e.ctrlKey && e.key === 'd') {
+            e.preventDefault();
+            setTransactionType('deposit');
+            const modal = new bootstrap.Modal(document.getElementById('addTransactionModal'));
+            modal.show();
+        }
+        
+        // Ctrl+W for withdrawal
+        if (e.ctrlKey && e.key === 'w') {
+            e.preventDefault();
+            setTransactionType('withdrawal');
+            const modal = new bootstrap.Modal(document.getElementById('addTransactionModal'));
+            modal.show();
+        }
+    });
+</script>
+{% endblock %}
