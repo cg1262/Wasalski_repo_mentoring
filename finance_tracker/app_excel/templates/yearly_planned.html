@@ -37,7 +37,7 @@
     <div class="col-md-3">
         <div class="excel-summary-box excel-summary-warning">
             <h6>Oczekujące w tym roku</h6>
-            {% set current_year = moment().year if moment else 2025 %}
+            {% set current_year = 2025 %}
             <h3>{{ planned_expenses|selectattr('planned_year', 'equalto', current_year)|selectattr('is_paid', 'equalto', 0)|list|length }}</h3>
             <small>Do opłacenia w {{ current_year }}</small>
         </div>
@@ -76,7 +76,7 @@
                     </thead>
                     <tbody>
                         {% for planned in planned_expenses %}
-                        <tr class="{% if planned.is_paid %}table-success{% elif planned.planned_year == 2025 and planned.planned_month <= moment().month if moment else 7 %}table-warning{% endif %}">
+                        <tr class="{% if planned.is_paid %}table-success{% elif planned.planned_year == 2025 and planned.planned_month <= 7 %}table-warning{% endif %}">
                             <td>
                                 {% if planned.is_paid %}
                                     <span class="status-indicator status-active"></span>
@@ -95,13 +95,11 @@
                             <td class="excel-number">{{ "%.2f"|format(planned.amount) }} zł</td>
                             <td>
                                 <strong>{{ month_names[planned.planned_month] }} {{ planned.planned_year }}</strong>
-                                {% set current_year = 2025 %}
-                                {% set current_month = 7 %}
-                                {% if planned.planned_year == current_year and planned.planned_month == current_month %}
+                                {% if planned.planned_year == 2025 and planned.planned_month == 7 %}
                                     <br><small class="text-warning"><i class="fas fa-clock"></i> Ten miesiąc!</small>
-                                {% elif planned.planned_year == current_year and planned.planned_month < current_month %}
+                                {% elif planned.planned_year == 2025 and planned.planned_month < 7 %}
                                     <br><small class="text-danger"><i class="fas fa-exclamation"></i> Opóźniony</small>
-                                {% elif planned.planned_year == current_year and planned.planned_month == current_month + 1 %}
+                                {% elif planned.planned_year == 2025 and planned.planned_month == 8 %}
                                     <br><small class="text-info"><i class="fas fa-arrow-right"></i> Następny miesiąc</small>
                                 {% endif %}
                             </td>

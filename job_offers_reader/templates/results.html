@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Results - Job Offers Reader{% endblock %}
+
+{% block content %}
+<!-- Navigation Buttons -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a href="/" class="btn btn-primary">
+                <i class="fas fa-upload me-2"></i>Upload PDFs
+            </a>
+            <a href="/results" class="btn btn-success">
+                <i class="fas fa-list me-2"></i>View Results
+            </a>
+            <a href="/analyze_json" class="btn btn-info">
+                <i class="fas fa-chart-bar me-2"></i>Data Analysis
+            </a>
+            <a href="/claude_analysis" class="btn btn-warning">
+                <i class="fas fa-brain me-2"></i>AI Analysis
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-gradient text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0"><i class="fas fa-list me-2"></i>Analysis Results</h4>
+                <div>
+                    <a href="{{ url_for('analyze_json') }}" class="btn btn-warning btn-sm">
+                        <i class="fas fa-chart-bar me-2"></i>Analyze Data
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-upload me-2"></i>Upload More
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if files %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th><i class="fas fa-file me-2"></i>Filename</th>
+                                    <th><i class="fas fa-weight me-2"></i>Size</th>
+                                    <th><i class="fas fa-clock me-2"></i>Modified</th>
+                                    <th><i class="fas fa-cogs me-2"></i>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in files %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-file-code text-primary me-2"></i>
+                                        {{ file.filename }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ "%.2f"|format(file.size / 1024) }} KB</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ file.modified }}</small>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('view_result_file', filename=file.filename) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye me-1"></i>View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5>No results found</h5>
+                        <p class="text-muted">Upload some PDF files to see analysis results here.</p>
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-upload me-2"></i>Upload PDFs
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

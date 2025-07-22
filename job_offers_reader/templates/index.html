@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}Upload PDFs - Job Offers Reader{% endblock %}
+
+{% block content %}
+<!-- Navigation Buttons (in case navbar doesn't show) -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a href="/" class="btn btn-primary">
+                <i class="fas fa-upload me-2"></i>Upload PDFs
+            </a>
+            <a href="/results" class="btn btn-success">
+                <i class="fas fa-list me-2"></i>View Results
+            </a>
+            <a href="/analyze_json" class="btn btn-info">
+                <i class="fas fa-chart-bar me-2"></i>Data Analysis
+            </a>
+            <a href="/claude_analysis" class="btn btn-warning">
+                <i class="fas fa-brain me-2"></i>AI Analysis
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-gradient text-white">
+                <h4 class="mb-0"><i class="fas fa-upload me-2"></i>Upload Job Offer PDFs</h4>
+                <small>Select PDF files to analyze tech stack and extract job descriptions</small>
+            </div>
+            <div class="card-body">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="upload-zone" id="upload-zone">
+                        <div class="mb-3">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <h5>Drag and drop PDF files here</h5>
+                            <p class="text-muted">or click to select files</p>
+                            <input type="file" id="files" name="files" multiple accept=".pdf" class="d-none">
+                        </div>
+                    </div>
+                    <div class="text-center mt-3">
+                        <button type="button" class="btn btn-outline-primary" id="select-files">
+                            <i class="fas fa-folder-open me-2"></i>Select PDF Files
+                        </button>
+                    </div>
+                    
+                    <div id="selected-files" class="mt-3" style="display: none;">
+                        <h6>Selected Files:</h6>
+                        <ul id="files-list" class="list-group"></ul>
+                    </div>
+                    
+                    <div class="mt-4 text-center">
+                        <button type="submit" class="btn btn-success btn-lg" id="upload-btn" disabled>
+                            <i class="fas fa-cogs me-2"></i>Analyze PDFs
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="processing" class="text-center mt-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-2">Analyzing PDFs, please wait...</p>
+                </div>
+                
+                <div id="results" class="mt-4" style="display: none;">
+                    <h5><i class="fas fa-chart-line me-2"></i>Analysis Results</h5>
+                    <div id="results-content"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header bg-gradient text-white">
+                <h4 class="mb-0"><i class="fas fa-folder me-2"></i>Bulk Process Folder</h4>
+                <small>Process all PDF files from a folder at once</small>
+            </div>
+            <div class="card-body">
+                <form id="folder-form">
+                    <div class="mb-3">
+                        <label for="folder-path" class="form-label">Folder Path</label>
+                        <input type="text" class="form-control" id="folder-path" name="folder_path" 
+                               placeholder="/Users/username/Desktop/job_offers" 
+                               title="Enter the full path to the folder containing PDF files">
+                    </div>
+                    <button type="submit" class="btn btn-warning" id="folder-btn">
+                        <i class="fas fa-folder-open me-2"></i>Process All PDFs in Folder
+                    </button>
+                </form>
+                
+                <div id="folder-processing" class="text-center mt-3" style="display: none;">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Processing folder...</span>
+                    </div>
+                    <p class="mt-2">Processing all PDF files in folder...</p>
+                </div>
+                
+                <div id="folder-results" class="mt-3" style="display: none;">
+                    <div id="folder-results-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>What this tool does</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-code text-primary me-2"></i>Tech Stack Extraction</h6>
+                        <p class="text-muted small">Identifies programming languages, frameworks, databases, tools, and cloud platforms mentioned in job offers.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-file-alt text-success me-2"></i>Job Description</h6>
+                        <p class="text-muted small">Extracts the main job description and responsibilities from the PDF content.</p>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-download text-warning me-2"></i>JSON Output</h6>
+                        <p class="text-muted small">Saves all extracted data to JSON files for further processing and analysis.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-batch text-info me-2"></i>Batch Processing</h6>
+                        <p class="text-muted small">Process multiple PDF files at once for efficient analysis.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fallback function for direct DOM manipulation
+function initFileUpload() {
+    const fileInput = document.getElementById('files');
+    const selectBtn = document.getElementById('select-files');
+    const uploadZone = document.getElementById('upload-zone');
+    
+    if (selectBtn && fileInput) {
+        selectBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Fallback: Select button clicked');
+            fileInput.click();
+        });
+    }
+    
+    if (uploadZone && fileInput) {
+        uploadZone.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Fallback: Upload zone clicked');
+            fileInput.click();
+        });
+    }
+}
+
+// Initialize fallback immediately
+initFileUpload();
+
+$(document).ready(function() {
+    const uploadZone = $('#upload-zone');
+    const fileInput = $('#files');
+    const selectBtn = $('#select-files');
+    const uploadBtn = $('#upload-btn');
+    const selectedFiles = $('#selected-files');
+    const filesList = $('#files-list');
+    const uploadForm = $('#upload-form');
+    const processing = $('#processing');
+    const results = $('#results');
+    
+    // Folder processing elements
+    const folderForm = $('#folder-form');
+    const folderBtn = $('#folder-btn');
+    const folderProcessing = $('#folder-processing');
+    const folderResults = $('#folder-results');
+    
+    // Click to select files
+    selectBtn.click(function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Select button clicked');
+        fileInput.trigger('click');
+    });
+    
+    uploadZone.click(function(e) {
+        e.preventDefault();
+        console.log('Upload zone clicked');
+        fileInput.trigger('click');
+    });
+    
+    // Drag and drop functionality
+    uploadZone.on('dragover', function(e) {
+        e.preventDefault();
+        $(this).addClass('dragover');
+    });
+    
+    uploadZone.on('dragleave', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+    });
+    
+    uploadZone.on('drop', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+        
+        const files = e.originalEvent.dataTransfer.files;
+        fileInput[0].files = files;
+        updateFilesList();
+    });
+    
+    // File selection change
+    fileInput.change(function() {
+        updateFilesList();
+    });
+    
+    function updateFilesList() {
+        const files = fileInput[0].files;
+        filesList.empty();
+        
+        if (files.length > 0) {
+            selectedFiles.show();
+            uploadBtn.prop('disabled', false);
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const fileSize = (file.size / 1024 / 1024).toFixed(2);
+                filesList.append(`
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-file-pdf text-danger me-2"></i>${file.name}</span>
+                        <span class="badge bg-secondary">${fileSize} MB</span>
+                    </li>
+                `);
+            }
+        } else {
+            selectedFiles.hide();
+            uploadBtn.prop('disabled', true);
+        }
+    }
+    
+    // Form submission
+    uploadForm.submit(function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        const files = fileInput[0].files;
+        
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
+        
+        processing.show();
+        uploadBtn.prop('disabled', true);
+        results.hide();
+        
+        $.ajax({
+            url: '/upload',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                processing.hide();
+                uploadBtn.prop('disabled', false);
+                
+                if (response.success) {
+                    displayResults(response.results, response.output_file);
+                } else {
+                    alert('Error: ' + response.error);
+                }
+            },
+            error: function() {
+                processing.hide();
+                uploadBtn.prop('disabled', false);
+                alert('An error occurred while processing the files.');
+            }
+        });
+    });
+    
+    function displayResults(resultsData, outputFile) {
+        let html = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>
+                Successfully processed ${resultsData.length} PDF(s). 
+                Results saved to <strong>${outputFile}</strong>
+            </div>
+        `;
+        
+        resultsData.forEach(function(result, index) {
+            html += `
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-file-pdf text-danger me-2"></i>${result.filename}</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-code text-primary me-2"></i>Tech Stack:</h6>
+                                <p class="text-muted small">${result.tech_stack.substring(0, 300)}${result.tech_stack.length > 300 ? '...' : ''}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-file-alt text-success me-2"></i>Job Description:</h6>
+                                <p class="text-muted small">${result.job_description.substring(0, 300)}${result.job_description.length > 300 ? '...' : ''}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+            <div class="text-center mt-3">
+                <a href="/results" class="btn btn-primary">
+                    <i class="fas fa-list me-2"></i>View All Results
+                </a>
+            </div>
+        `;
+        
+        $('#results-content').html(html);
+        results.show();
+    }
+    
+    // Folder processing form submission
+    folderForm.submit(function(e) {
+        e.preventDefault();
+        
+        const folderPath = $('#folder-path').val().trim();
+        
+        if (!folderPath) {
+            alert('Please enter a folder path');
+            return;
+        }
+        
+        folderProcessing.show();
+        folderBtn.prop('disabled', true);
+        folderResults.hide();
+        
+        $.ajax({
+            url: '/process_folder',
+            type: 'POST',
+            data: { folder_path: folderPath },
+            success: function(response) {
+                folderProcessing.hide();
+                folderBtn.prop('disabled', false);
+                
+                if (response.success) {
+                    displayFolderResults(response);
+                } else {
+                    alert('Error: ' + response.error);
+                }
+            },
+            error: function() {
+                folderProcessing.hide();
+                folderBtn.prop('disabled', false);
+                alert('An error occurred while processing the folder.');
+            }
+        });
+    });
+    
+    function displayFolderResults(response) {
+        let html = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>
+                Successfully processed ${response.processed_count}/${response.total_files} PDF(s) from folder. 
+                Results saved to <strong>${response.output_file}</strong>
+            </div>
+        `;
+        
+        // Show first few results as preview
+        const previewCount = Math.min(3, response.results.length);
+        html += `<h6>Preview of first ${previewCount} results:</h6>`;
+        
+        for (let i = 0; i < previewCount; i++) {
+            const result = response.results[i];
+            html += `
+                <div class="card mb-2">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-file-pdf text-danger me-2"></i>${result.filename}</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-code text-primary me-2"></i>Tech Stack:</h6>
+                                <p class="text-muted small">${result.tech_stack.substring(0, 200)}${result.tech_stack.length > 200 ? '...' : ''}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-file-alt text-success me-2"></i>Job Description:</h6>
+                                <p class="text-muted small">${result.job_description.substring(0, 200)}${result.job_description.length > 200 ? '...' : ''}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += `
+            <div class="text-center mt-3">
+                <a href="/results" class="btn btn-primary">
+                    <i class="fas fa-list me-2"></i>View All Results
+                </a>
+            </div>
+        `;
+        
+        $('#folder-results-content').html(html);
+        folderResults.show();
+    }
+    
+});
+</script>
+{% endblock %}

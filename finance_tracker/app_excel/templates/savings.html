@@ -52,23 +52,14 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    {% set current_year = 2025 %}
-                    {% for month_num in range(1, 13) %}
-                    {% set month_names = ['', 'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'] %}
-                    {% set month_transactions = transactions|selectattr('date', 'match', '^' + current_year|string + '-' + '%02d'|format(month_num)) %}
-                    {% set month_deposits = month_transactions|selectattr('transaction_type', 'equalto', 'deposit')|sum(attribute='amount') %}
-                    {% set month_withdrawals = month_transactions|selectattr('transaction_type', 'equalto', 'withdrawal')|sum(attribute='amount') %}
-                    {% set month_net = month_deposits - month_withdrawals %}
-                    
-                    {% if month_net != 0 %}
+                    {% for month_num, summary in monthly_summaries.items() %}
                     <div class="col-md-2 mb-2">
-                        <div class="excel-summary-box {% if month_net > 0 %}excel-summary-positive{% else %}excel-summary-negative{% endif %}">
-                            <h6>{{ month_names[month_num] }}</h6>
-                            <strong class="excel-number">{{ "%.0f"|format(month_net) }} zł</strong>
-                            <small><br>{{ month_transactions|list|length }} transakcji</small>
+                        <div class="excel-summary-box {% if summary.net > 0 %}excel-summary-positive{% else %}excel-summary-negative{% endif %}">
+                            <h6>{{ summary.name }}</h6>
+                            <strong class="excel-number">{{ "%.0f"|format(summary.net) }} zł</strong>
+                            <small><br>{{ summary.count }} transakcji</small>
                         </div>
                     </div>
-                    {% endif %}
                     {% endfor %}
                 </div>
             </div>
@@ -92,20 +83,12 @@
                             <th>Typ</th>
                             <th>Opis</th>
                             <th>Kwota</th>
-                            <th>Saldo po transakcji</th>
                             <th>Źródło</th>
                             <th>Akcje</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% set running_balance = 0 %}
                         {% for transaction in transactions %}
-                        {% if transaction.transaction_type == 'deposit' %}
-                            {% set running_balance = running_balance + transaction.amount %}
-                        {% else %}
-                            {% set running_balance = running_balance - transaction.amount %}
-                        {% endif %}
-                        
                         <tr class="{% if transaction.transaction_type == 'deposit' %}table-success{% else %}table-warning{% endif %}">
                             <td>{{ transaction.date }}</td>
                             <td>
@@ -132,9 +115,6 @@
                                     <span class="text-warning">-{{ "%.2f"|format(transaction.amount) }} zł</span>
                                 {% endif %}
                             </td>
-                            <td class="excel-number">
-                                <strong>{{ "%.2f"|format(running_balance) }} zł</strong>
-                            </td>
                             <td>
                                 {% if transaction.month_source %}
                                     <span class="badge bg-info">Transfer automatyczny</span>
@@ -152,7 +132,7 @@
                         
                         <!-- Final balance row -->
                         <tr style="background-color: var(--excel-gray); font-weight: bold; border-top: 2px solid var(--excel-dark-gray);">
-                            <td colspan="4"><strong>SALDO KOŃCOWE:</strong></td>
+                            <td colspan="3"><strong>SALDO KOŃCOWE:</strong></td>
                             <td class="excel-number"><strong>{{ "%.2f"|format(balance) }} zł</strong></td>
                             <td colspan="2"></td>
                         </tr>
@@ -264,12 +244,20 @@
                         <ul class="list-unstyled">
                             <li><strong>Liczba transakcji:</strong> {{ transactions|length }}</li>
                             <li><strong>Średnia wpłata:</strong> 
-                                {% set avg_deposit = transactions|selectattr('transaction_type', 'equalto', 'deposit')|avg(attribute='amount') %}
-                                {{ "%.2f"|format(avg_deposit if avg_deposit else 0) }} zł
+                                {% set deposits = transactions|selectattr('transaction_type', 'equalto', 'deposit')|list %}
+                                {% if deposits|length > 0 %}
+                                    {{ "%.2f"|format((deposits|sum(attribute='amount')) / (deposits|length)) }} zł
+                                {% else %}
+                                    0.00 zł
+                                {% endif %}
                             </li>
                             <li><strong>Średnia wypłata:</strong> 
-                                {% set avg_withdrawal = transactions|selectattr('transaction_type', 'equalto', 'withdrawal')|avg(attribute='amount') %}
-                                {{ "%.2f"|format(avg_withdrawal if avg_withdrawal else 0) }} zł
+                                {% set withdrawals = transactions|selectattr('transaction_type', 'equalto', 'withdrawal')|list %}
+                                {% if withdrawals|length > 0 %}
+                                    {{ "%.2f"|format((withdrawals|sum(attribute='amount')) / (withdrawals|length)) }} zł
+                                {% else %}
+                                    0.00 zł
+                                {% endif %}
                             </li>
                         </ul>
                     </div>

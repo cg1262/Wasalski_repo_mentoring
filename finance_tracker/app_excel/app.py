@@ -521,11 +521,35 @@ def savings():
         FROM savings_transactions
     ''').fetchone()['balance']
     
+    # Calculate monthly summaries for 2025
+    monthly_summaries = {}
+    current_year = 2025
+    month_names = ['', 'Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec',
+                   'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień']
+    
+    for month_num in range(1, 13):
+        month_prefix = f"{current_year}-{month_num:02d}"
+        
+        # Filter transactions for this month
+        month_transactions = [t for t in transactions if t['date'].startswith(month_prefix)]
+        
+        month_deposits = sum(t['amount'] for t in month_transactions if t['transaction_type'] == 'deposit')
+        month_withdrawals = sum(t['amount'] for t in month_transactions if t['transaction_type'] == 'withdrawal')
+        month_net = month_deposits - month_withdrawals
+        
+        if month_net != 0:  # Only include months with transactions
+            monthly_summaries[month_num] = {
+                'name': month_names[month_num],
+                'net': month_net,
+                'count': len(month_transactions)
+            }
+    
     conn.close()
     
     return render_template('savings.html',
                          transactions=transactions,
-                         balance=balance)
+                         balance=balance,
+                         monthly_summaries=monthly_summaries)
 
 # Missing route implementations
 @app.route('/add_leasing', methods=['POST'])
