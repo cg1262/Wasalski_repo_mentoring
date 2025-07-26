@@ -1,21 +1,37 @@
+<!-- TEMPLATE INHERITANCE - rozszerzanie base template -->
 {% extends "base.html" %}
 
+<!-- NADPISANIE BLOKU TITLE z base.html -->
 {% block title %}Upload PDFs - Job Offers Reader{% endblock %}
 
+<!-- GŁÓWNA TREŚĆ STRONY - implementacja bloku content -->
 {% block content %}
-<!-- Navigation Buttons (in case navbar doesn't show) -->
-<div class="row mb-3">
+<!-- NAWIGACJA ZAPASOWA - przyciski w przypadku problemów z navbar -->
+<!-- Bootstrap Grid System: row > col-12 (pełna szerokość) -->
+<div class="row mb-3">  <!-- mb-3: margin-bottom 3 units -->
     <div class="col-12">
+        <!-- Flexbox layout: d-flex (display: flex) -->
+        <!-- gap-2: odstępy między elementami -->
+        <!-- justify-content-center: wyśrodkowanie horizontalne -->
+        <!-- flex-wrap: zawijanie na małych ekranach -->
         <div class="d-flex gap-2 justify-content-center flex-wrap">
+            
+            <!-- PRZYCISK UPLOAD - strona główna -->
             <a href="/" class="btn btn-primary">
                 <i class="fas fa-upload me-2"></i>Upload PDFs
             </a>
+            
+            <!-- PRZYCISK WYNIKI - lista rezultatów -->
             <a href="/results" class="btn btn-success">
                 <i class="fas fa-list me-2"></i>View Results
             </a>
+            
+            <!-- PRZYCISK ANALIZA DANYCH - statystyki JSON -->
             <a href="/analyze_json" class="btn btn-info">
                 <i class="fas fa-chart-bar me-2"></i>Data Analysis
             </a>
+            
+            <!-- PRZYCISK AI ANALIZA - Claude insights -->
             <a href="/claude_analysis" class="btn btn-warning">
                 <i class="fas fa-brain me-2"></i>AI Analysis
             </a>
@@ -23,20 +39,37 @@
     </div>
 </div>
 
+<!-- GŁÓWNY LAYOUT STRONY -->
+<!-- justify-content-center: wyśrodkowanie kolumn w rzedzie -->
 <div class="row justify-content-center">
+    <!-- col-lg-8: szerokość 8/12 na dużych ekranach (responsive) -->
     <div class="col-lg-8">
+        
+        <!-- KARTA UPLOAD PDFÓW - główna funkcjonalność -->
         <div class="card">
+            <!-- NAGŁÓWEK KARTY z gradientem z base.css -->
             <div class="card-header bg-gradient text-white">
                 <h4 class="mb-0"><i class="fas fa-upload me-2"></i>Upload Job Offer PDFs</h4>
                 <small>Select PDF files to analyze tech stack and extract job descriptions</small>
             </div>
+            
+            <!-- TREŚĆ KARTY - formularz upload -->
             <div class="card-body">
+                <!-- FORMULARZ UPLOAD - enctype dla plików -->
+                <!-- enctype="multipart/form-data" - wymagane do przesyłania plików -->
                 <form id="upload-form" enctype="multipart/form-data">
+                    <!-- STREFA DRAG & DROP - używa CSS z base.html -->
+                    <!-- upload-zone class zdefiniowana w base.html (hover effects) -->
                     <div class="upload-zone" id="upload-zone">
                         <div class="mb-3">
+                            <!-- Font Awesome ikona w rozmiarze 3x -->
                             <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
                             <h5>Drag and drop PDF files here</h5>
                             <p class="text-muted">or click to select files</p>
+                            
+                            <!-- INPUT FILE - ukryty (d-none) -->
+                            <!-- multiple: wielokrotny wybór plików -->
+                            <!-- accept=".pdf": tylko pliki PDF -->
                             <input type="file" id="files" name="files" multiple accept=".pdf" class="d-none">
                         </div>
                     </div>
@@ -134,83 +167,102 @@
 </div>
 {% endblock %}
 
+<!-- BLOK JAVASCRIPT - custom scripts dla tej strony -->
 {% block scripts %}
 <script>
-// Fallback function for direct DOM manipulation
+// === VANILLA JAVASCRIPT FALLBACK ===
+// Funkcja zapasowa bez jQuery na wypadek błędów ładowania
 function initFileUpload() {
-    const fileInput = document.getElementById('files');
-    const selectBtn = document.getElementById('select-files');
-    const uploadZone = document.getElementById('upload-zone');
+    // Pobranie elementów DOM przez ID
+    const fileInput = document.getElementById('files');      // Ukryty input file
+    const selectBtn = document.getElementById('select-files'); // Przycisk wyboru
+    const uploadZone = document.getElementById('upload-zone'); // Strefa drag&drop
     
+    // Event listener dla przycisku "Select Files"
     if (selectBtn && fileInput) {
         selectBtn.addEventListener('click', function(e) {
-            e.preventDefault();
+            e.preventDefault();  // Zapobieganie domyślnej akcji
             console.log('Fallback: Select button clicked');
-            fileInput.click();
+            fileInput.click();   // Programowe kliknięcie input file
         });
     }
     
+    // Event listener dla strefy upload (kliknięcie w obszar)
     if (uploadZone && fileInput) {
         uploadZone.addEventListener('click', function(e) {
             e.preventDefault();
             console.log('Fallback: Upload zone clicked');
-            fileInput.click();
+            fileInput.click();   // Otworzenie dialogu wyboru plików
         });
     }
 }
 
-// Initialize fallback immediately
+// Inicjalizacja fallback natychmiast (przed jQuery)
 initFileUpload();
 
+// === JQUERY GŁÓWNA LOGIKA ===
+// $(document).ready() - wykonuje kod po załadowaniu DOM
 $(document).ready(function() {
-    const uploadZone = $('#upload-zone');
-    const fileInput = $('#files');
-    const selectBtn = $('#select-files');
-    const uploadBtn = $('#upload-btn');
-    const selectedFiles = $('#selected-files');
-    const filesList = $('#files-list');
-    const uploadForm = $('#upload-form');
-    const processing = $('#processing');
-    const results = $('#results');
     
-    // Folder processing elements
-    const folderForm = $('#folder-form');
-    const folderBtn = $('#folder-btn');
-    const folderProcessing = $('#folder-processing');
-    const folderResults = $('#folder-results');
+    // POBRANIE ELEMENTÓW DOM przez jQuery selektory
+    // $('#id') - selektor ID w jQuery
+    const uploadZone = $('#upload-zone');      // Strefa drag & drop
+    const fileInput = $('#files');             // Input file (ukryty)
+    const selectBtn = $('#select-files');      // Przycisk wyboru plików
+    const uploadBtn = $('#upload-btn');        // Przycisk analizy
+    const selectedFiles = $('#selected-files'); // Kontener listy wybranych plików
+    const filesList = $('#files-list');       // Lista wybranych plików
+    const uploadForm = $('#upload-form');      // Formularz upload
+    const processing = $('#processing');       // Wskaźnik przetwarzania
+    const results = $('#results');            // Kontener wyników
     
-    // Click to select files
+    // ELEMENTY PRZETWARZANIA FOLDERÓW
+    const folderForm = $('#folder-form');         // Formularz folderu
+    const folderBtn = $('#folder-btn');           // Przycisk przetwarzania folderu
+    const folderProcessing = $('#folder-processing'); // Wskaźnik przetwarzania folderu
+    const folderResults = $('#folder-results');   // Wyniki przetwarzania folderu
+    
+    // === EVENT HANDLERY - obsługa kliknięć ===
+    
+    // PRZYCISK "SELECT FILES" - otwiera dialog wyboru plików
     selectBtn.click(function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault();     // Zatrzymanie domyślnej akcji
+        e.stopPropagation();   // Zatrzymanie propagacji eventu
         console.log('Select button clicked');
-        fileInput.trigger('click');
+        fileInput.trigger('click'); // jQuery trigger - programowe kliknięcie
     });
     
+    // STREFA UPLOAD - kliknięcie w obszar drag&drop
     uploadZone.click(function(e) {
         e.preventDefault();
         console.log('Upload zone clicked');
-        fileInput.trigger('click');
+        fileInput.trigger('click'); // Otworzenie dialogu plików
     });
     
-    // Drag and drop functionality
+    // === DRAG & DROP FUNCTIONALITY ===
+    // Nowoczesny sposób przeciągania plików do przeglądarki
+    
+    // DRAGOVER - gdy plik jest przeciągany nad strefą
     uploadZone.on('dragover', function(e) {
-        e.preventDefault();
-        $(this).addClass('dragover');
+        e.preventDefault();        // Zapobieganie domyślnej akcji (otworzenie pliku)
+        $(this).addClass('dragover'); // Dodanie CSS class dla efektu wizualnego
     });
     
+    // DRAGLEAVE - gdy plik opuści strefę
     uploadZone.on('dragleave', function(e) {
         e.preventDefault();
-        $(this).removeClass('dragover');
+        $(this).removeClass('dragover'); // Usunięcie efektu wizualnego
     });
     
+    // DROP - gdy plik zostanie upuszczony w strefie
     uploadZone.on('drop', function(e) {
         e.preventDefault();
-        $(this).removeClass('dragover');
+        $(this).removeClass('dragover'); // Usunięcie efektu hover
         
+        // Pobranie plików z eventu drag&drop
         const files = e.originalEvent.dataTransfer.files;
-        fileInput[0].files = files;
-        updateFilesList();
+        fileInput[0].files = files;  // Przypisanie do input file
+        updateFilesList();           // Aktualizacja listy wybranych plików
     });
     
     // File selection change
@@ -242,37 +294,50 @@ $(document).ready(function() {
         }
     }
     
-    // Form submission
+    // === WYSYŁANIE FORMULARZA ===
+    // Główna logika przesyłania i przetwarzania plików
     uploadForm.submit(function(e) {
-        e.preventDefault();
+        e.preventDefault(); // Zatrzymanie standardowego wysyłania formularza
         
+        // Tworzenie obiektu FormData do przesyłania plików
+        // FormData - nowoczesny sposób przesyłania plików przez AJAX
         const formData = new FormData();
-        const files = fileInput[0].files;
+        const files = fileInput[0].files; // Pobranie wybranych plików
         
+        // Dodanie każdego pliku do FormData
         for (let i = 0; i < files.length; i++) {
-            formData.append('files', files[i]);
+            formData.append('files', files[i]); // 'files' - nazwa klucza w Flask
         }
         
-        processing.show();
-        uploadBtn.prop('disabled', true);
-        results.hide();
+        // UI FEEDBACK - pokazanie wskaźnika ładowania
+        processing.show();                    // Pokaż spinner
+        uploadBtn.prop('disabled', true);     // Wyłącz przycisk
+        results.hide();                      // Ukryj poprzednie wyniki
         
+        // AJAX REQUEST - asynchroniczne wysyłanie do Flask
         $.ajax({
-            url: '/upload',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
+            url: '/upload',              // Endpoint Flask (z app.py)
+            type: 'POST',               // Metoda HTTP
+            data: formData,             // Dane do wysłania
+            processData: false,         // Nie przetwarzaj danych (wymagane dla plików)
+            contentType: false,         // Nie ustawiaj content-type (auto dla FormData)
+            
+            // SUKCES - odpowiedź pozytywna z serwera
             success: function(response) {
-                processing.hide();
-                uploadBtn.prop('disabled', false);
+                processing.hide();                  // Ukryj spinner
+                uploadBtn.prop('disabled', false);  // Odblokuj przycisk
                 
+                // Sprawdzenie czy Flask zwrócił sukces
                 if (response.success) {
+                    // Wyświetlenie wyników analizy
                     displayResults(response.results, response.output_file);
                 } else {
+                    // Wyświetlenie błędu z serwera
                     alert('Error: ' + response.error);
                 }
             },
+            
+            // BŁĄD - problem z połączeniem lub serwerem
             error: function() {
                 processing.hide();
                 uploadBtn.prop('disabled', false);

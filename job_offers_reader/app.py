@@ -1,178 +1,275 @@
-import os
-import json
-import re
-from datetime import datetime
-from pathlib import Path
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-from werkzeug.utils import secure_filename
-import PyPDF2
-import pdfplumber
-from dotenv import load_dotenv
-import anthropic
+# Import standardowych bibliotek Pythona
+import os  # System operacyjny - praca z plikami i folderami
+import json  # Obsługa formatów JSON - zapis i odczyt danych strukturalnych
+import re  # Wyrażenia regularne - wyszukiwanie wzorców w tekście
+from datetime import datetime  # Operacje na datach i czasie
+from pathlib import Path  # Nowoczesny sposób pracy ze ścieżkami plików
 
-# Load environment variables
+# Import bibliotek Flask - framework webowy do tworzenia aplikacji internetowych
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+# Flask - główna klasa aplikacji webowej
+# render_template - renderowanie szablonów HTML
+# request - dostęp do danych z żądań HTTP (formularze, pliki)
+# jsonify - konwersja danych Pythona na format JSON dla API
+# redirect - przekierowania między stronami
+# url_for - generowanie URLów na podstawie nazw funkcji
+# flash - komunikaty dla użytkownika (błędy, sukces)
+
+from werkzeug.utils import secure_filename  # Bezpieczne nazwy plików - zabezpieczenie przed atakami
+
+# Biblioteki do pracy z plikami PDF
+import PyPDF2  # Pierwsza biblioteka do ekstrakcji tekstu z PDF
+import pdfplumber  # Druga biblioteka PDF - lepsza dla skomplikowanych layoutów
+
+# Biblioteki do integracji z zewnętrznymi API
+from dotenv import load_dotenv  # Ładowanie zmiennych środowiskowych z pliku .env
+import anthropic  # Klient API Claude AI dla analizy tekstu
+
+# Ładowanie zmiennych środowiskowych z pliku .env
+# Umożliwia przechowywanie kluczy API i innych wrażliwych danych poza kodem
 load_dotenv()
 
+# Tworzenie instancji aplikacji Flask
+# __name__ przekazuje nazwę aktualnego modułu, co pomaga Flask znaleźć zasoby
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'job-offers-reader-secret-key'
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['OUTPUT_FOLDER'] = 'output'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Create necessary directories
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
-os.makedirs('templates', exist_ok=True)
-os.makedirs('static', exist_ok=True)
+# Konfiguracja aplikacji Flask
+app.config['SECRET_KEY'] = 'job-offers-reader-secret-key'  # Klucz do szyfrowania sesji i flash messages
+app.config['UPLOAD_FOLDER'] = 'uploads'  # Folder na tymczasowe przesłane pliki PDF
+app.config['OUTPUT_FOLDER'] = 'output'  # Folder na wyniki analizy w formacie JSON
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Maksymalny rozmiar przesyłanego pliku (16MB)
 
-# Initialize Claude client
+# Tworzenie niezbędnych folderów dla aplikacji
+# exist_ok=True oznacza, że nie wystąpi błąd jeśli folder już istnieje
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)  # Folder uploads/ - tymczasowe pliki PDF
+os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)  # Folder output/ - wyniki analizy JSON
+os.makedirs('templates', exist_ok=True)  # Folder templates/ - szablony HTML
+os.makedirs('static', exist_ok=True)  # Folder static/ - CSS, JS, obrazy
+
+# Inicjalizacja klienta Claude AI
+# Blok try-except zapewnia graceful degradation - aplikacja działa nawet bez Claude
 try:
+    # Tworzenie klienta Claude z kluczem API ze zmiennych środowiskowych
     claude_client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
-    CLAUDE_AVAILABLE = True
-    print("Claude API initialized successfully")
+    CLAUDE_AVAILABLE = True  # Flaga informująca o dostępności Claude AI
+    print("Claude API initialized successfully")  # Komunikat o sukcesie
 except Exception as e:
-    claude_client = None
-    CLAUDE_AVAILABLE = False
-    print(f"Claude API not available: {e}")
+    # Jeśli inicjalizacja nie powiodła się (brak klucza API, błąd połączenia)
+    claude_client = None  # Brak klienta
+    CLAUDE_AVAILABLE = False  # Flaga - Claude niedostępny
+    print(f"Claude API not available: {e}")  # Komunikat o błędzie
 
 class JobOfferAnalyzer:
     """
-    Analyzes job offer PDFs to extract tech stack and job descriptions.
+    Klasa do analizy plików PDF z ofertami pracy.
+    Główne funkcje: ekstrakcja tekstu, identyfikacja stosu technologicznego i opisu stanowiska.
+    
+    Design Pattern: Używa wzorca Single Responsibility - jedna klasa odpowiada tylko za analizę PDF
     """
     
     def __init__(self):
-        # Simple analyzer for specific job offer format
+        """
+        Konstruktor klasy - inicjalizacja analizatora.
+        Obecnie prosty, ale można rozszerzyć o konfigurację wzorców wyszukiwania.
+        """
+        # Prosty analizator dla konkretnego formatu ofert pracy
+        # W przyszłości można dodać konfigurację wzorców regex lub słowniki technologii
         pass
     
     def extract_text_from_pdf(self, pdf_path):
         """
-        Extract text content from PDF using multiple methods for better accuracy.
+        Ekstrakcja tekstu z PDF używając dwóch metod dla maksymalnej kompatybilności.
+        
+        Strategia: pdfplumber (główna metoda) + PyPDF2 (fallback)
+        Zwraca: string z tekstem lub None przy błędzie
         """
-        text_content = ""
-        total_pages = 0
+        text_content = ""  # Zmienna do gromadzenia całego tekstu z PDF
+        total_pages = 0    # Licznik stron do logowania postępu
         
         try:
-            # Method 1: pdfplumber (better for complex layouts)
+            # Metoda 1: pdfplumber (lepsza dla skomplikowanych layoutów PDF)
+            # Context manager (with) automatycznie zamyka plik po użyciu
             with pdfplumber.open(pdf_path) as pdf:
-                total_pages = len(pdf.pages)
-                print(f"PDF has {total_pages} pages")
+                total_pages = len(pdf.pages)  # Pobieranie liczby stron
+                print(f"PDF has {total_pages} pages")  # Informacja o postępie
                 
+                # Iteracja przez wszystkie strony PDF
+                # enumerate(pdf.pages, 1) - numeracja od 1 zamiast 0
                 for page_num, page in enumerate(pdf.pages, 1):
-                    print(f"Processing page {page_num}/{total_pages}")
-                    page_text = page.extract_text()
-                    if page_text:
-                        text_content += f"\n--- PAGE {page_num} ---\n"
-                        text_content += page_text + "\n"
+                    print(f"Processing page {page_num}/{total_pages}")  # Postęp przetwarzania
+                    page_text = page.extract_text()  # Ekstrakcja tekstu ze strony
+                    
+                    if page_text:  # Jeśli udało się wyekstraktować tekst
+                        text_content += f"\n--- PAGE {page_num} ---\n"  # Separator stron
+                        text_content += page_text + "\n"  # Dodanie tekstu strony
                         print(f"Page {page_num}: extracted {len(page_text)} characters")
                     else:
-                        print(f"Page {page_num}: no text extracted")
+                        print(f"Page {page_num}: no text extracted")  # Brak tekstu na stronie
                         
         except Exception as e:
-            print(f"pdfplumber failed: {e}")
+            print(f"pdfplumber failed: {e}")  # Logowanie błędu pierwszej metody
             
-            # Fallback Method 2: PyPDF2
+            # Metoda fallback 2: PyPDF2 - druga próba ekstrakcji tekstu
+            # Używana gdy pdfplumber nie działa (np. uszkodzony PDF)
             try:
-                print("Trying PyPDF2 as fallback...")
+                print("Trying PyPDF2 as fallback...")  # Informacja o próbie fallback
+                # Otwieranie pliku w trybie binarnym ('rb') - wymagane dla PyPDF2
                 with open(pdf_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    total_pages = len(pdf_reader.pages)
+                    pdf_reader = PyPDF2.PdfReader(file)  # Tworzenie readera PyPDF2
+                    total_pages = len(pdf_reader.pages)  # Liczba stron
                     print(f"PyPDF2: PDF has {total_pages} pages")
                     
+                    # Iteracja przez strony (podobnie jak w pdfplumber)
                     for page_num, page in enumerate(pdf_reader.pages, 1):
                         print(f"PyPDF2: Processing page {page_num}/{total_pages}")
-                        page_text = page.extract_text()
-                        if page_text:
-                            text_content += f"\n--- PAGE {page_num} ---\n"
-                            text_content += page_text + "\n"
+                        page_text = page.extract_text()  # Ekstrakcja tekstu PyPDF2
+                        
+                        if page_text:  # Jeśli tekst został wyekstraktowany
+                            text_content += f"\n--- PAGE {page_num} ---\n"  # Separator
+                            text_content += page_text + "\n"  # Dodanie tekstu
                             print(f"PyPDF2: Page {page_num}: extracted {len(page_text)} characters")
                         else:
                             print(f"PyPDF2: Page {page_num}: no text extracted")
                             
             except Exception as e2:
-                print(f"PyPDF2 also failed: {e2}")
-                return None
+                print(f"PyPDF2 also failed: {e2}")  # Obie metody zawiodły
+                return None  # Zwracamy None - nie udało się wyekstraktować tekstu
         
+        # Podsumowanie ekstrakcji tekstu
         print(f"Total text extracted: {len(text_content)} characters from {total_pages} pages")
+        
+        # Zwracanie wyniku: tekst bez białych znaków na początku/końcu lub None jeśli pusty
+        # text_content.strip() usuwa spacje, tabulatory, nowe linie z początku i końca
         return text_content.strip() if text_content.strip() else None
     
     def extract_tech_stack(self, text):
         """
-        Extract everything between 'Tech stack' and ' Job d' sections.
-        """
-        print("Extracting Tech Stack section...")
+        Ekstrakcja stosu technologicznego z tekstu oferty pracy.
+        Szuka zawartości między 'Tech stack' a ' Job d' używając regex.
         
-        # Look for content between "Tech stack" and " Job d"
+        Args: text (str) - pełny tekst z PDF
+        Returns: str - znaleziony stos technologiczny lub komunikat o błędzie
+        """
+        print("Extracting Tech Stack section...")  # Informacja o rozpoczęciu ekstrakcji
+        
+        # Wzorzec regex do znalezienia sekcji Tech Stack:
+        # tech\s*stack - słowo "tech" + opcjonalne białe znaki + "stack"
+        # [:\s]* - opcjonalne dwukropki i białe znaki po "Tech stack"
+        # (.*?) - grupa przechwytująca (non-greedy) - zawartość stosu tech
+        # (?:\s+job\s*d|$) - zakończenie: " job d" lub koniec tekstu
         pattern = r'tech\s*stack[:\s]*(.*?)(?:\s+job\s*d|$)'
         
+        # re.search - znajdź pierwsze dopasowanie wzorca
+        # re.DOTALL - . dopasowuje także znaki nowej linii
+        # re.IGNORECASE - ignoruj wielkość liter
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         
-        if match:
-            tech_content = match.group(1).strip()
-            # Clean up the content
+        if match:  # Jeśli znaleziono dopasowanie wzorca
+            tech_content = match.group(1).strip()  # Wyciąg pierwszej grupy (zawartość)
+            
+            # Czyszczenie zawartości z nadmiarowych białych znaków:
+            # re.sub(r'\s+', ' ', tech_content) - zamienia wielokrotne spacje/taby/nowe linie na pojedynczą spację
             tech_content = re.sub(r'\s+', ' ', tech_content)
+            # Usuwanie separatorów stron dodanych podczas ekstrakcji PDF
             tech_content = re.sub(r'--- PAGE \d+ ---', ' ', tech_content)
-            print(f"Found Tech Stack: {len(tech_content)} characters")
-            return tech_content
+            
+            print(f"Found Tech Stack: {len(tech_content)} characters")  # Informacja o sukcesie
+            return tech_content  # Zwracanie oczyszczonej zawartości
         else:
-            print("No Tech Stack section found")
-            return "Tech Stack section not found"
+            print("No Tech Stack section found")  # Brak dopasowania wzorca
+            return "Tech Stack section not found"  # Komunikat o błędzie
     
     def extract_job_description(self, text):
         """
-        Extract Job description starting from 'Job d' until 'Apply Check similar'.
-        """
-        print("Extracting Job Description section from 'Job d' to 'Apply Check similar'...")
+        Ekstrakcja opisu stanowiska z tekstu oferty pracy.
+        Szuka zawartości od 'Job d' do 'Apply Check similar'.
         
-        # Look for content between "Job d" and "Apply Check similar"
+        Args: text (str) - pełny tekst z PDF
+        Returns: str - znaleziony opis stanowiska lub komunikat o błędzie
+        """
+        print("Extracting Job Description section from 'Job d' to 'Apply Check similar'...")  # Log
+        
+        # Wzorzec regex do znalezienia opisu stanowiska:
+        # job\s*d - słowo "job" + opcjonalne białe znaki + "d" (skrót od "description")
+        # (.*?) - grupa przechwytująca (non-greedy) - zawartość opisu
+        # (?:apply\s*check\s*similar|$) - zakończenie: "apply check similar" lub koniec tekstu
         pattern = r'job\s*d(.*?)(?:apply\s*check\s*similar|$)'
         
+        # Wyszukiwanie wzorca (podobnie jak w extract_tech_stack)
         match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
         
-        if match:
-            job_content = match.group(1).strip()
-            # Clean up the content
-            job_content = re.sub(r'\s+', ' ', job_content)
-            job_content = re.sub(r'--- PAGE \d+ ---', ' ', job_content)
-            job_content = job_content.strip()
+        if match:  # Jeśli znaleziono dopasowanie wzorca regex
+            job_content = match.group(1).strip()  # Wyciąg zawartości z pierwszej grupy
             
-            print(f"Found Job Description: {len(job_content)} characters")
-            return job_content
+            # Proces czyszczenia tekstu (identyczny jak w extract_tech_stack):
+            job_content = re.sub(r'\s+', ' ', job_content)  # Normalizacja białych znaków
+            job_content = re.sub(r'--- PAGE \d+ ---', ' ', job_content)  # Usunięcie separatorów stron
+            job_content = job_content.strip()  # Usunięcie białych znaków z początku/końca
+            
+            print(f"Found Job Description: {len(job_content)} characters")  # Sukces
+            return job_content  # Zwróć oczyszczony opis
         else:
-            print("No Job Description section found between 'Job d' and 'Apply Check similar'")
-            return "Job Description section not found"
+            print("No Job Description section found between 'Job d' and 'Apply Check similar'")  # Błąd
+            return "Job Description section not found"  # Komunikat o niepowodzeniu
     
     def analyze_pdf(self, pdf_path):
         """
-        Analyze a single PDF file and extract tech stack and job description.
+        Główna metoda analizy pojedynczego pliku PDF.
+        Łączy wszystkie poprzednie metody w kompleksową analizę.
+        
+        Args: pdf_path (str) - ścieżka do pliku PDF
+        Returns: dict - słownik z wynikami analizy lub None przy błędzie
         """
+        # Krok 1: Ekstrakcja tekstu z PDF
         text = self.extract_text_from_pdf(pdf_path)
-        if not text:
-            return None
+        if not text:  # Jeśli nie udało się wyekstraktować tekstu
+            return None  # Zwracamy None - analiza niemożliwa
         
-        tech_stack = self.extract_tech_stack(text)
-        job_description = self.extract_job_description(text)
+        # Krok 2: Analiza tekstu - wyodrębnienie sekcji
+        tech_stack = self.extract_tech_stack(text)  # Stos technologiczny
+        job_description = self.extract_job_description(text)  # Opis stanowiska
         
+        # Krok 3: Tworzenie struktury wynikowej (słownik)
         return {
-            'filename': os.path.basename(pdf_path),
-            'tech_stack': tech_stack,
-            'job_description': job_description,
-            'extracted_at': datetime.now().isoformat(),
-            'text_length': len(text)
+            'filename': os.path.basename(pdf_path),  # Nazwa pliku bez ścieżki
+            'tech_stack': tech_stack,  # Wyekstraktowany stos technologiczny
+            'job_description': job_description,  # Wyekstraktowany opis
+            'extracted_at': datetime.now().isoformat(),  # Timestamp analizy (format ISO)
+            'text_length': len(text)  # Długość wyekstraktowanego tekstu
         }
 
+# Tworzenie globalnej instancji analizatora PDF
+# Używana przez wszystkie trasy aplikacji
 analyzer = JobOfferAnalyzer()
 
-@app.route('/')
+# === TRASY FLASK (ROUTES) ===
+# Trasy definiują endpointy HTTP i odpowiadające im funkcje
+
+@app.route('/')  # Dekorator - trasa dla URL głównego (/)
 def index():
+    """
+    Strona główna aplikacji - formularz upload pliku.
+    HTTP GET na / zwraca szablon HTML z interfejsem uploadu.
+    """
+    # render_template szuka pliku w folderze templates/
     return render_template('index.html')
 
-@app.route('/upload', methods=['POST'])
+@app.route('/upload', methods=['POST'])  # Endpoint dla POST requests na /upload
 def upload_files():
-    try:
-        print("Upload request received")
+    """
+    Główny endpoint do przetwarzania przesyłanych plików PDF.
+    Obsługuje wielokrotny upload, analizę i zapis wyników do JSON.
+    
+    Returns: JSON response z wynikami analizy lub komunikatem błędu
+    """
+    try:  # Blok try-except dla obsługi błędów
+        print("Upload request received")  # Log otrzymania żądania
         
+        # Sprawdzenie czy żądanie zawiera pliki
+        # request.files - MultiDict zawierający przesyłane pliki
         if 'files' not in request.files:
-            print("No files in request")
+            print("No files in request")  # Log braku plików
+            # jsonify() - konwertuje słownik Python na odpowiedź JSON
             return jsonify({'success': False, 'error': 'No files selected'})
         
         files = request.files.getlist('files')
