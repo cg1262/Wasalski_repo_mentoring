@@ -1,0 +1,34 @@
+{
+  "name": "Snowflake_Credentials_PIPELINEUSER",
+  "description": "Snowflake credentials for PIPELINEUSER profile used in git fetch operations",
+  "variables": {
+    "snowflake_account": {
+      "value": "rh58459.north-europe.azure",
+      "isSecret": false
+    },
+    "snowflake_user_pipeline": {
+      "value": "PIPELINEUSER",
+      "isSecret": false
+    },
+    "snowflake_password_pipeline": {
+      "value": "DevOps_DataPython1",
+      "isSecret": true
+    },
+    "snowflake_role_pipeline": {
+      "value": "ACCOUNTADMIN",
+      "isSecret": false
+    },
+    "snowflake_warehouse": {
+      "value": "AIRBYTE_WH",
+      "isSecret": false
+    },
+    "snowflake_database": {
+      "value": "PROD",
+      "isSecret": false
+    },
+    "snowflake_schema": {
+      "value": "PUBLIC",
+      "isSecret": false
+    }
+  }
+}
