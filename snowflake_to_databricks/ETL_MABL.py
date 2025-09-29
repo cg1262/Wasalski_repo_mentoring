@@ -30,7 +30,7 @@ class Mabl:
         # Common headers
         self.headers = {
                 "accept": "application/json",
-                "authorization": "Basic bWF0ZXVzei53YXNhbHNraUBzb2Z0d2FyZW1pbmQuY29tOlNKTzVrNTN5WnNZRWxmb3lIaXI5YlE="
+                "authorization": "Basic "
             }
     
 
