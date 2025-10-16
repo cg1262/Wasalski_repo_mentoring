@@ -1,16 +1,14 @@
-# Databricks notebook source
-orgUuid = ''
-userKey = '' 
-email = ''
-
-# COMMAND ----------
+# in config file password are being stored, to be changed after deployment to databricks
 
 import os
 import requests
 import pandas as pd
 from json import loads, dumps
+from  concurrent.futures import ThreadPoolExecutor
 
-class Mend:
+from config import  orgUuid, userKey, email
+
+class ServiceBronze:
     
     def __init__(self):
         self.orgUuid = orgUuid
@@ -258,37 +256,8 @@ class Mend:
     ###################################################
     # LOOPS
     ###################################################
-    def get_alerts_per_library(self):
-        all_security_alerts_data = []
-        page_size = 1000  # Using a smaller page size for example, adjust as needed (max 10000)
-        
-        for project_token in self.get_unique_uuid():
-            page = 0
-            while True:
-                url_security_alerts_library = f"https://api-saas-eu.whitesourcesoftware.com/api/v2.0/projects/{project_token}/alerts/security/groupBy/component"
-                params = {"pageSize": str(page_size), "page": str(page)}
-                response = requests.get(url_security_alerts_library, headers=self.get_headers(), params=params)
-                # Raise an exception for bad status codes (4xx client error or 5xx server error)
-                response.raise_for_status()
-                data_page = response.json()
-        
-                # Extract the list of alerts, default to empty list if 'retVal' is missing or null
-                alerts = data_page.get('retVal', [])
-        
-                # Add project token to each alert record for context
-                for alert in alerts:
-                    alert['projectToken'] = project_token
-                all_security_alerts_data.extend(alerts)
-        
-                # If the number of returned alerts is less than the page size, it's the last page
-                if len(alerts) < page_size:
-                    break
-        
-                # Increment page number for the next request
-                page += 1
-        
-        df_security_alerts = pd.DataFrame(all_security_alerts_data)
-        return df_security_alerts
+
+
     
     def get_alerts_per_project(self):
         all_security_findings = []  # Initialize list to store all findings from all projects
@@ -414,17 +383,50 @@ class Mend:
         params = {
             'limit': "10000"
         }
-        for i in self.get_unique_uuid():
-            due_diligence_url = f"https://api-saas-eu.whitesourcesoftware.com/api/v3.0/projects/{i}/dependencies/libraries/licenses"
+        
+        def get_projects_unique_uuid(project_unique_uuid):
+            due_diligence_url = f"https://api-saas-eu.whitesourcesoftware.com/api/v3.0/projects/{project_unique_uuid}/dependencies/libraries/licenses"
             response_due_diligence = requests.get(due_diligence_url, headers=self.get_headers(), params=params) 
             due_diligence = response_due_diligence.json().get('response', [])
-            all_due_diligence.extend(due_diligence)
+            return due_diligence
+
+        with ThreadPoolExecutor(max_workers=15) as executor:
+            results = list(executor.map(get_projects_unique_uuid, self.get_unique_uuid()))
+
+        # Flatten the list of lists
+        for result in results:
+            all_due_diligence.extend(result)
         
         return pd.DataFrame(all_due_diligence)
 
-
-###################################################
-# CLASS INSTANTIATION
-###################################################
-# To use the class:
-api = Mend()
+    def get_alerts_per_library(self):
+        all_security_alerts_data = []
+        page_size = 1000  # Using a smaller page size for example, adjust as needed (max 10000)
+        
+        for project_token in self.get_unique_uuid():
+            page = 0
+            while True:
+                url_security_alerts_library = f"https://api-saas-eu.whitesourcesoftware.com/api/v2.0/projects/{project_token}/alerts/security/groupBy/component"
+                params = {"pageSize": str(page_size), "page": str(page)}
+                response = requests.get(url_security_alerts_library, headers=self.get_headers(), params=params)
+                # Raise an exception for bad status codes (4xx client error or 5xx server error)
+                response.raise_for_status()
+                data_page = response.json()
+        
+                # Extract the list of alerts, default to empty list if 'retVal' is missing or null
+                alerts = data_page.get('retVal', [])
+        
+                # Add project token to each alert record for context
+                for alert in alerts:
+                    alert['projectToken'] = project_token
+                all_security_alerts_data.extend(alerts)
+        
+                # If the number of returned alerts is less than the page size, it's the last page
+                if len(alerts) < page_size:
+                    break
+        
+                # Increment page number for the next request
+                page += 1
+        
+        df_security_alerts = pd.DataFrame(all_security_alerts_data)
+        return df_security_alerts
