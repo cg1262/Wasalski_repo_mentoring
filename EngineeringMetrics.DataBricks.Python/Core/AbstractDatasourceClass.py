@@ -1,11 +1,6 @@
 """
 AbstractDatasourceClass.py - ETL Module
 Created automatically
-
-blueprint for all datasource classes
-defines three (for now) methods that each datasource class MUST implement
--> try commenting out any of these methods in DatasourceApifyClass.py to see the error
-
 """
 
 from abc import ABC, abstractmethod

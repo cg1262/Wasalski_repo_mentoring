@@ -33,6 +33,7 @@ class DatasourceApifyClass(AbstractDatasourceClass):
         #########
         print("\nStarting actor runs - 2 of 3 datasets")
         bronze_data['actor_runs'] = self.bronze_service.get_actor_runs()
+        
         print(f"Output: {len(bronze_data['actor_runs'])} rows")
         #########
         print("\nStarting detailed actor runs - 3 of 3 datasets")
