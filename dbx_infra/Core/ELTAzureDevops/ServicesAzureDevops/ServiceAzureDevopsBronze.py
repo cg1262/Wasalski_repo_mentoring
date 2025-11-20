@@ -369,8 +369,8 @@ class ServiceBronze:
         
         if test_one_build == True:
             # Hardcoded test values
-            project_name = 'VigiContract'
-            repo_id = '33398337-5fce-4b20-95b3-6b95f48455e1'
+            project_name = '123'
+            repo_id = '123'
             
             base_url = f"https://dev.azure.com/{self.organization_name}/{project_name}/_apis/build/builds"
             params = {

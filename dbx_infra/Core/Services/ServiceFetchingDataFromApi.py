@@ -27,6 +27,7 @@ class ServiceResponseApi:
             }
         self.pagerduty_basic_url = "https://api.pagerduty.com/"
         self.pagerduty_limit = 100
+        
     def response_data_apify(self, basic_url: str, url_suffix:str, headers: dict = None):
             """
             Generic method to get data from Apify API
